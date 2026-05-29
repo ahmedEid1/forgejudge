@@ -59,6 +59,13 @@ def run_task_patch(task: Task, patch: str, source_dir: str | Path) -> RunOutcome
             git(tmp, "reset", "-q", "--hard", "HEAD")
             git(tmp, "clean", "-qfd")
 
+        # Cheat-resistance: the candidate may only change SOURCE, never the
+        # tests. Restore every f2p/p2p test file to its canonical (HEAD) version
+        # so a patch can't neuter or weaken the oracle to fake a resolution.
+        test_files = sorted({nid.split("::", 1)[0] for nid in (*task.fail_to_pass, *task.pass_to_pass)})
+        for tf in test_files:
+            git(tmp, "checkout", "HEAD", "--", tf, check=False)
+
         f2p_status, l1 = run_nodeids_status(tmp, task.fail_to_pass)
         p2p_status, l2 = run_nodeids_status(tmp, task.pass_to_pass)
     finally:

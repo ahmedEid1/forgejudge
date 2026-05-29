@@ -11,7 +11,9 @@ import pytest
 from forgejudge.golden.build_dataset import load_solutions, source_dir_for
 from forgejudge.golden.loader import load_tasks
 from forgejudge.golden.materialize import (
+    apply_unified_diff,
     copy_tree,
+    git,
     init_base_repo,
     staged_diff_against_base,
 )
@@ -74,3 +76,33 @@ def test_gold_patch_resolves_an_owned_task():
     iid = "owned-handson-metrics"
     r = grade(TASKS[iid], GOLD[iid])
     assert r.resolved is True
+
+
+def _patch_modifying_testfile(instance_id: str, rel: str, new_content: str) -> str:
+    """Build a candidate that modifies a test file as it exists AFTER test_patch."""
+    src = source_dir_for(instance_id)
+    tmp = Path(tempfile.mkdtemp(prefix="fjcheat-"))
+    try:
+        copy_tree(src / "base", tmp)
+        init_base_repo(tmp)
+        apply_unified_diff(tmp, TASKS[instance_id].test_patch)
+        git(tmp, "add", "-A")
+        git(tmp, "commit", "-q", "-m", "base+test")
+        (tmp / rel).write_text(new_content)
+        return staged_diff_against_base(tmp)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+@pytest.mark.slow
+def test_patch_cannot_cheat_by_neutering_the_test():
+    # A patch that overwrites the FAIL_TO_PASS test to trivially pass, WITHOUT
+    # fixing the source, must NOT resolve — the canonical test is restored.
+    neutered = (
+        "def test_double_digit_minor():\n    pass\n\n\n"
+        "def test_double_digit_symmetry():\n    pass\n\n\n"
+        "def test_shorter_version_equals_zero_padded():\n    pass\n"
+    )
+    bad = _patch_modifying_testfile(SEMVER, "test_semver_bug.py", neutered)
+    r = grade(TASKS[SEMVER], bad)
+    assert r.resolved is False
