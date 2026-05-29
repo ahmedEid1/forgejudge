@@ -9,7 +9,11 @@
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org)
 
+**▶ Live leaderboard: [forgejudge.pages.dev](https://forgejudge.pages.dev)** · [methodology](https://forgejudge.pages.dev/methodology) · [model swap](https://forgejudge.pages.dev/model-swap)
+
 </div>
+
+> **Current numbers** (hidden-test, $0 free tier, same harness): `llama-3.3-70b` resolves **10/12 (83.3%)**, `llama-3.1-8b` **8/12 (66.7%)** — the score rises with the better model while the harness stays fixed. Every run [deep-links its Langfuse trace](https://forgejudge.pages.dev).
 
 ForgeJudge is the only open-source autonomous software-engineering agent that **proves its quality in public on every commit**: a hand-rolled single-agent solver, a deterministic execution-as-judge harness, an always-on leaderboard with per-run traces, and a CI gate that blocks regressions — all on a **`$0` / self-hostable** stack against a **contamination-resistant, intrinsically-verifiable** golden set.
 
