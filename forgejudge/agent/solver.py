@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+from forgejudge.agent.critic import critique
 from forgejudge.agent.localize import localize
 from forgejudge.agent.repair import build_edit_messages, extract_code, is_valid_python
 from forgejudge.golden.build_dataset import source_dir_for
@@ -41,6 +42,7 @@ class SolveResult:
     cost_usd: float
     resolved_in_loop: bool                  # the agent's own validation passed
     reverted_edits: int = 0                 # edits the syntax gate rejected
+    critic_rejections: int = 0              # edits the critic rejected before testing
 
 
 def _is_test_path(rel: str) -> bool:
@@ -78,6 +80,7 @@ def solve(
     seed: int = 0,
     max_steps: int = 6,
     complete_fn: CompleteFn | None = None,
+    critic_fn: CompleteFn | None = None,
     source_dir: str | Path | None = None,
 ) -> SolveResult:
     """Produce a candidate unified-diff patch for ``task``.
@@ -92,6 +95,7 @@ def solve(
     steps = 0
     cost = 0.0
     reverted = 0
+    critic_rejections = 0
     status: str = "budget_exceeded"
     try:
         copy_tree(src / "base", work)
@@ -125,6 +129,14 @@ def solve(
                 feedback = "Your edit was not valid Python (syntax error). Return a valid file."
                 continue
 
+            # Cheap critic filter before the (expensive) test run.
+            if critic_fn is not None:
+                verdict = critique(task, code, failing_tests, complete_fn=critic_fn, run_id=run_id)
+                if not verdict.approved:
+                    critic_rejections += 1
+                    feedback = f"A reviewer rejected the edit: {verdict.reason}"
+                    continue
+
             (work / target).write_text(code)
             f2p, _ = run_nodeids_status(work, task.fail_to_pass)
             p2p, _ = run_nodeids_status(work, task.pass_to_pass)
@@ -140,8 +152,8 @@ def solve(
         patch = staged_diff_against_base(work)
     except Exception:  # noqa: BLE001 - any failure is reported as an errored run
         shutil.rmtree(work, ignore_errors=True)
-        return SolveResult("", "error", steps, cost, False, reverted)
+        return SolveResult("", "error", steps, cost, False, reverted, critic_rejections)
     finally:
         shutil.rmtree(work, ignore_errors=True)
 
-    return SolveResult(patch, status, steps, cost, status == "ok", reverted)
+    return SolveResult(patch, status, steps, cost, status == "ok", reverted, critic_rejections)
