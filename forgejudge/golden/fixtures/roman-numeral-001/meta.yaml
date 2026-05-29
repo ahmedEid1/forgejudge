@@ -1,0 +1,22 @@
+instance_id: fixture-roman-numeral-001
+family: make_ci_green
+problem_statement: |
+  `to_roman(4)` returns "IIII" and `to_roman(9)` returns "VIIII". Larger values
+  are affected too: `to_roman(1994)` returns "MDCCCCLXXXXIIII" instead of
+  "MCMXCIV". Any number that contains a 4 or a 9 in one of its digit positions
+  is rendered incorrectly.
+source_license: own
+created_at: "2026-05-29"
+env_image: "python:3.12-slim"
+fail_to_pass:
+  - "test_roman_bug.py::test_four"
+  - "test_roman_bug.py::test_nine"
+  - "test_roman_bug.py::test_forty_nine"
+  - "test_roman_bug.py::test_nineteen_ninety_four"
+pass_to_pass:
+  - "test_roman.py::test_one"
+  - "test_roman.py::test_three"
+  - "test_roman.py::test_ten"
+  - "test_roman.py::test_additive_thirty_seven"
+  - "test_roman.py::test_two_thousand"
+  - "test_roman.py::test_rejects_zero"
