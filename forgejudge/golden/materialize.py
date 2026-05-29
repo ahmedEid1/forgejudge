@@ -92,22 +92,20 @@ def reset_to_base(workdir: str | Path) -> None:
     git(workdir, "clean", "-qfd")
 
 
-def run_nodeids(
+def run_nodeids_status(
     workdir: str | Path, nodeids: list[str], *, python: str | None = None
-) -> tuple[int, int, str]:
-    """Run each pytest node id in ``workdir`` and count how many pass.
+) -> tuple[dict[str, bool], str]:
+    """Run each pytest node id in its own process; return ``({nodeid: passed}, logs)``.
 
-    Each node id is run in its own pytest process so the pass/fail verdict is
-    exact and independent. Returns ``(passed, total, combined_logs)``.
+    ``-B`` / PYTHONDONTWRITEBYTECODE: never write .pyc. Critical for correctness —
+    when a source file is patched in place and the edit preserves its byte size
+    within the same wall-clock second, CPython's (mtime, size) .pyc cache would
+    otherwise serve STALE bytecode for the newly-patched file.
     """
     python = python or sys.executable
-    passed = 0
-    logs: list[str] = []
-    # ``-B`` / PYTHONDONTWRITEBYTECODE: never write .pyc. Critical for correctness —
-    # when a source file is patched in place and the edit preserves its byte size
-    # within the same wall-clock second, CPython's (mtime, size) .pyc cache would
-    # otherwise serve STALE bytecode for the newly-patched file.
     env = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
+    status: dict[str, bool] = {}
+    logs: list[str] = []
     for nodeid in nodeids:
         res = subprocess.run(
             [python, "-B", "-m", "pytest", nodeid, "-q", "--no-header", "-p", "no:cacheprovider"],
@@ -118,7 +116,15 @@ def run_nodeids(
             env=env,
         )
         ok = res.returncode == 0
-        passed += int(ok)
+        status[nodeid] = ok
         logs.append(f"$ pytest {nodeid} -> rc={res.returncode} ({'PASS' if ok else 'FAIL'})")
         logs.append(res.stdout[-2000:])
-    return passed, len(nodeids), "\n".join(logs)
+    return status, "\n".join(logs)
+
+
+def run_nodeids(
+    workdir: str | Path, nodeids: list[str], *, python: str | None = None
+) -> tuple[int, int, str]:
+    """Run each pytest node id and count how many pass: ``(passed, total, logs)``."""
+    status, logs = run_nodeids_status(workdir, nodeids, python=python)
+    return sum(status.values()), len(nodeids), logs

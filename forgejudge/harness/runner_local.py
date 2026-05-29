@@ -7,7 +7,7 @@ the same interface provides defense-in-depth where available.
 
 import shutil
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from forgejudge.golden.materialize import (
@@ -15,7 +15,7 @@ from forgejudge.golden.materialize import (
     copy_tree,
     git,
     init_base_repo,
-    run_nodeids,
+    run_nodeids_status,
 )
 from forgejudge.types import Task
 
@@ -27,6 +27,9 @@ class RunOutcome:
     p2p_passed: int
     p2p_total: int
     logs: str
+    # nodeid -> "PASSED"/"FAILED"; fed to the official swebench grading for the
+    # equivalence check (see harness/swebench_grade.py).
+    status_map: dict[str, str] = field(default_factory=dict)
 
 
 def run_task_patch(task: Task, patch: str, source_dir: str | Path) -> RunOutcome:
@@ -56,10 +59,21 @@ def run_task_patch(task: Task, patch: str, source_dir: str | Path) -> RunOutcome
             git(tmp, "reset", "-q", "--hard", "HEAD")
             git(tmp, "clean", "-qfd")
 
-        f2p_passed, f2p_total, l1 = run_nodeids(tmp, task.fail_to_pass)
-        p2p_passed, p2p_total, l2 = run_nodeids(tmp, task.pass_to_pass)
+        f2p_status, l1 = run_nodeids_status(tmp, task.fail_to_pass)
+        p2p_status, l2 = run_nodeids_status(tmp, task.pass_to_pass)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
+    status_map = {
+        nodeid: ("PASSED" if ok else "FAILED")
+        for nodeid, ok in {**f2p_status, **p2p_status}.items()
+    }
     logs = "\n".join(filter(None, [patch_note, "[FAIL_TO_PASS]", l1, "[PASS_TO_PASS]", l2]))
-    return RunOutcome(f2p_passed, f2p_total, p2p_passed, p2p_total, logs)
+    return RunOutcome(
+        f2p_passed=sum(f2p_status.values()),
+        f2p_total=len(f2p_status),
+        p2p_passed=sum(p2p_status.values()),
+        p2p_total=len(p2p_status),
+        logs=logs,
+        status_map=status_map,
+    )

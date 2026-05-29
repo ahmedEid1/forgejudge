@@ -34,4 +34,17 @@ jobs:
         run: uv run pytest -m "not slow" -q
 
       - name: Golden-set validation (slow — runs pytest per task)
-        run: uv run pytest -m slow -q
+        run: uv run pytest -m "slow and not swebench" -q
+
+  swebench-equivalence:
+    name: swebench grading equivalence
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Sync with official swebench grading
+        run: uv sync --extra harness
+      - name: Verify our verdict == swebench get_resolution_status
+        run: uv run pytest -m swebench -q

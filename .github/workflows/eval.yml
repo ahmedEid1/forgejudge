@@ -1,0 +1,85 @@
+name: eval
+
+# Sandbox grade executor: shards the golden set across ephemeral, isolated VMs
+# (the GitHub Actions public-runner VM is the sandbox boundary — see DESIGN $0
+# insight). Phase 2 grades the GOLD patches as an end-to-end harness self-test;
+# the Phase 5 sweep feeds the agent's patches.
+
+on:
+  workflow_dispatch:
+    inputs:
+      patch_source:
+        description: "Which patches to grade"
+        type: choice
+        options: [gold, empty]
+        default: gold
+  repository_dispatch:
+    types: [forgejudge-eval]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eval-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  grade:
+    name: grade shard ${{ matrix.shard }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - run: uv sync
+
+      - name: Grade shard
+        env:
+          # Untrusted event input is read via env (never interpolated into the
+          # shell) and validated by argparse choices=[gold, empty].
+          PATCH_SOURCE: ${{ github.event.inputs.patch_source || github.event.client_payload.patch_source || 'gold' }}
+          SHARD: ${{ matrix.shard }}
+        run: |
+          uv run python -m forgejudge.harness.runner_actions \
+            --patch-source "${PATCH_SOURCE:-gold}" \
+            --model "${PATCH_SOURCE:-gold}" \
+            --shard "${SHARD}" --num-shards 4 \
+            --out "runs-shard-${SHARD}.jsonl"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: runs-shard-${{ matrix.shard }}
+          path: runs-shard-${{ matrix.shard }}.jsonl
+          if-no-files-found: error
+
+  summary:
+    name: aggregate
+    needs: grade
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Aggregate run records
+        run: |
+          uv run python -m forgejudge.harness.runner_actions --aggregate artifacts --out runs-all.jsonl | tee summary.txt
+          echo "### ForgeJudge eval" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cat summary.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: runs-all
+          path: runs-all.jsonl
