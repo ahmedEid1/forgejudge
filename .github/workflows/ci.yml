@@ -86,3 +86,15 @@ jobs:
       - run: uv sync --extra mcp
       - name: MCP tool + manifest tests
         run: uv run pytest -m mcp -q
+
+  playground:
+    name: guarded playground (fastapi)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --extra playground
+      - name: Playground guard tests
+        run: uv run pytest -m playground -q
