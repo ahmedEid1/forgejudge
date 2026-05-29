@@ -48,3 +48,29 @@ jobs:
         run: uv sync --extra harness
       - name: Verify our verdict == swebench get_resolution_status
         run: uv run pytest -m swebench -q
+
+  db-tests:
+    name: run store (pgvector)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: forgejudge
+          POSTGRES_PASSWORD: forgejudge
+          POSTGRES_DB: forgejudge
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U forgejudge"
+          --health-interval 5s --health-timeout 5s --health-retries 15
+    env:
+      FJ_LOCAL_DATABASE_URL: postgresql://forgejudge:forgejudge@localhost:5432/forgejudge
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync
+      - name: Run store + DB-backed tests
+        run: uv run pytest -m db -q
