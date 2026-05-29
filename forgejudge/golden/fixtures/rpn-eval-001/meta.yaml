@@ -1,0 +1,22 @@
+instance_id: fixture-rpn-eval-001
+family: make_ci_green
+problem_statement: |
+  `evaluate("5 3 -")` returns -2.0 but should return 2.0, and `evaluate("8 2 /")`
+  returns 0.25 instead of 4.0. Non-commutative operators (subtraction and
+  division) compute their result with the two operands the wrong way round.
+  Addition and multiplication are unaffected.
+source_license: own
+created_at: "2026-05-29"
+env_image: "python:3.12-slim"
+fail_to_pass:
+  - "test_rpn_bug.py::test_subtraction_order"
+  - "test_rpn_bug.py::test_division_order"
+  - "test_rpn_bug.py::test_mixed_expression"
+  - "test_rpn_bug.py::test_subtraction_negative_result"
+pass_to_pass:
+  - "test_rpn.py::test_single_number"
+  - "test_rpn.py::test_addition"
+  - "test_rpn.py::test_multiplication"
+  - "test_rpn.py::test_chained_commutative"
+  - "test_rpn.py::test_not_enough_operands"
+  - "test_rpn.py::test_invalid_token"
