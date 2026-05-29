@@ -1,0 +1,20 @@
+instance_id: fixture-jsonpath-001
+family: make_ci_green
+problem_statement: |
+  `get({"count": 0}, "count", default=-1)` returns -1 instead of 0. Lookups that
+  resolve to a falsy-but-valid leaf value (0, "", False) wrongly come back as the
+  default, as if the key were missing. Genuinely absent keys should still return
+  the default.
+source_license: own
+created_at: "2026-05-29"
+env_image: "python:3.12-slim"
+fail_to_pass:
+  - "test_jsonpath_bug.py::test_zero_value_is_returned"
+  - "test_jsonpath_bug.py::test_empty_string_value_is_returned"
+  - "test_jsonpath_bug.py::test_false_value_is_returned"
+  - "test_jsonpath_bug.py::test_zero_then_deeper_access_still_defaults"
+pass_to_pass:
+  - "test_jsonpath.py::test_nested_dict"
+  - "test_jsonpath.py::test_list_index"
+  - "test_jsonpath.py::test_missing_key_returns_default"
+  - "test_jsonpath.py::test_index_out_of_range"
