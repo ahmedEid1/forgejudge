@@ -1,0 +1,31 @@
+# Provenance
+#   repo:        ahmedEid1/LLM-Engineer-Handbook
+#   base_commit: af065cb4becf2a20ab4e896b9c380ba44d11a025
+#   source file: app/llm_twin/application/preprocessing/operations/cleaning.py
+#   function:    clean_text (book Ch.4/5 shared text-normalization op)
+#   note:        module snapshotted flat (import name `cleaning`). A realistic bug
+#                was injected: the markup-stripping regex substitutes the empty
+#                string instead of a space, so a markup char sitting between two
+#                words glues them together.
+instance_id: owned-handbook-clean-text
+family: make_ci_green
+repo: ahmedEid1/LLM-Engineer-Handbook
+base_commit: af065cb4becf2a20ab4e896b9c380ba44d11a025
+problem_statement: |
+  ``clean_text`` glues neighbouring words together when a stray markup character
+  separates them. ``clean_text("foo#bar")`` returns ``"foobar"`` instead of
+  ``"foo bar"``, and ``clean_text("alpha|beta")`` returns ``"alphabeta"``. Markup
+  characters that fall between two words are being removed without leaving a word
+  boundary, which corrupts the token stream fed to both ingestion and retrieval.
+source_license: own
+created_at: "2026-05-29"
+env_image: "python:3.12-slim"
+fail_to_pass:
+  - "test_cleaning_markup_boundary.py::test_markup_between_words_becomes_space"
+  - "test_cleaning_markup_boundary.py::test_pipe_between_words_becomes_space"
+  - "test_cleaning_markup_boundary.py::test_multiple_markup_chars_do_not_collapse_words"
+  - "test_cleaning_markup_boundary.py::test_markup_glued_to_words_preserves_word_count"
+pass_to_pass:
+  - "test_cleaning.py::test_clean_text_removes_non_ascii"
+  - "test_cleaning.py::test_clean_text_collapses_whitespace_and_strips"
+  - "test_cleaning.py::test_clean_text_empty_input"

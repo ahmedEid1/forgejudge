@@ -1,0 +1,40 @@
+# Provenance
+#   repo:        ahmedEid1/Hands-On-Large-Language-Models
+#   base_commit: 1cd13eb8ceb5a6a1c3fa4d61d8eaf60eb95258af
+#   source file: app/hands_on_llm/metrics.py
+#   functions:   confusion_matrix, per_class_metrics, precision_recall_f1 (Ch.4)
+#   note:        module snapshotted flat (import name `metrics`). A realistic bug
+#                was injected into per_class_metrics: false positives are summed
+#                over the matrix ROW instead of the COLUMN, so FP collapses to FN
+#                and precision is mis-computed (it equals recall) on asymmetric
+#                confusion matrices.
+instance_id: owned-handson-metrics
+family: make_ci_green
+repo: ahmedEid1/Hands-On-Large-Language-Models
+base_commit: 1cd13eb8ceb5a6a1c3fa4d61d8eaf60eb95258af
+problem_statement: |
+  Per-class precision is wrong whenever a class has false positives. For the
+  10-sample binary example with confusion matrix ``[[2, 2], [0, 6]]``, class 1
+  has 2 false positives and 0 false negatives, so its precision should be
+  ``6/8 = 0.75`` and recall ``6/6 = 1.0`` — but ``per_class_metrics`` reports
+  precision ``1.0`` (equal to recall). Likewise class 0's precision should be
+  ``1.0`` but comes out ``0.5``, and the weighted-average precision is ``0.80``
+  instead of ``0.85``. Precision and recall are effectively swapped on any
+  asymmetric confusion matrix.
+source_license: own
+created_at: "2026-05-29"
+env_image: "python:3.12-slim"
+fail_to_pass:
+  - "test_metrics_precision_recall.py::test_precision_counts_false_positives"
+  - "test_metrics_precision_recall.py::test_precision_and_recall_differ_when_matrix_is_asymmetric"
+  - "test_metrics_precision_recall.py::test_class0_precision_and_recall"
+  - "test_metrics_precision_recall.py::test_weighted_precision_uses_true_per_class_values"
+pass_to_pass:
+  - "test_metrics.py::test_unique_labels_sorted_union"
+  - "test_metrics.py::test_unique_labels_string_labels"
+  - "test_metrics.py::test_confusion_matrix_layout"
+  - "test_metrics.py::test_confusion_matrix_diagonal_is_correct_predictions"
+  - "test_metrics.py::test_accuracy_matches_manual_count"
+  - "test_metrics.py::test_accuracy_empty_is_zero"
+  - "test_metrics.py::test_per_class_support_is_true_instance_count"
+  - "test_metrics.py::test_length_mismatch_raises"

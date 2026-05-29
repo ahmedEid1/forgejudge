@@ -1,0 +1,44 @@
+# Provenance
+#   repo:        ahmedEid1/Build-a-Large-Language-Model-From-Scratch
+#   base_commit: 9d248d9aea4eea1dd95c35882bb30aea74e3680a
+#   source file: app/llm_from_scratch/tokenizer.py
+#   functions:   build_vocab, SimpleTokenizerV1, SimpleTokenizerV2 (Ch.2, Listings 2.3/2.4)
+#   note:        module snapshotted flat (import name `tokenizer`); BPE wrapper kept
+#                but never exercised (tiktoken stays a lazy import). A realistic typo
+#                was injected into SimpleTokenizerV2.decode's punctuation-cleanup regex.
+instance_id: owned-raschka-tokenizer
+family: make_ci_green
+repo: ahmedEid1/Build-a-Large-Language-Model-From-Scratch
+base_commit: 9d248d9aea4eea1dd95c35882bb30aea74e3680a
+problem_statement: |
+  Decoding a sequence through SimpleTokenizerV2 leaves a stray space before
+  every semicolon: ``decode(encode("Hello; world"))`` returns ``"Hello ; world"``
+  instead of ``"Hello; world"``. The semicolon is correctly split into its own
+  token on encode, but on decode it is not re-attached to the preceding word the
+  way other punctuation (comma, period, colon, question mark, exclamation mark)
+  is. Round-tripping any text that contains ``;`` no longer reproduces the input.
+source_license: own
+created_at: "2026-05-29"
+env_image: "python:3.12-slim"
+fail_to_pass:
+  - "test_tokenizer_semicolon.py::test_decode_removes_space_before_semicolon"
+  - "test_tokenizer_semicolon.py::test_round_trip_text_with_semicolon"
+  - "test_tokenizer_semicolon.py::test_semicolon_attaches_to_preceding_word"
+pass_to_pass:
+  - "test_tokenizer.py::TestBuildVocab::test_contains_special_tokens"
+  - "test_tokenizer.py::TestBuildVocab::test_special_tokens_at_end"
+  - "test_tokenizer.py::TestBuildVocab::test_all_values_unique"
+  - "test_tokenizer.py::TestBuildVocab::test_ids_are_contiguous"
+  - "test_tokenizer.py::TestSimpleTokenizerV1::test_round_trip"
+  - "test_tokenizer.py::TestSimpleTokenizerV1::test_punctuation_no_leading_space"
+  - "test_tokenizer.py::TestSimpleTokenizerV1::test_unknown_word_raises"
+  - "test_tokenizer.py::TestSimpleTokenizerV1::test_known_sentence"
+  - "test_tokenizer.py::TestSimpleTokenizerV2::test_unknown_word_maps_to_unk"
+  - "test_tokenizer.py::TestSimpleTokenizerV2::test_endoftext_token_survives_round_trip"
+  - "test_tokenizer.py::TestSimpleTokenizerV2::test_mixed_known_unknown"
+  - "test_tokenizer.py::TestSimpleTokenizerV2::test_no_keyerror_on_unknown"
+  - "test_tokenizer.py::TestSimpleTokenizerV2::test_round_trip_known_text"
+  - "test_tokenizer.py::TestSimpleTokenizerV2::test_separator_between_texts"
+  - "test_tokenizer.py::TestV1V2RegexDivergence::test_v2_splits_colon_and_semicolon"
+  - "test_tokenizer.py::TestV1V2RegexDivergence::test_v1_keeps_colon_attached"
+  - "test_tokenizer.py::TestV1V2RegexDivergence::test_v1_does_not_split_colon_with_v2_vocab"
