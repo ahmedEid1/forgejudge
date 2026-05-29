@@ -142,6 +142,14 @@ def discover_task_dirs() -> list[Path]:
     return dirs
 
 
+def source_dir_for(instance_id: str) -> Path:
+    """Locate the bundled source directory (base/test/fix) for ``instance_id``."""
+    for d in discover_task_dirs():
+        if _read_meta(d).get("instance_id") == instance_id:
+            return d
+    raise KeyError(f"no golden task directory for instance_id {instance_id!r}")
+
+
 def build_dataset(*, validate: bool = True) -> list[Task]:
     """Build, validate, and write the dataset + solutions sidecar. Returns tasks."""
     tasks: list[Task] = []
