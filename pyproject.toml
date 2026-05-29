@@ -17,17 +17,13 @@ dependencies = [
     "pgvector>=0.3",
     "psycopg[binary]>=3.2",
     "unidiff>=0.7",
+    "opentelemetry-sdk>=1.27",
+    "opentelemetry-exporter-otlp-proto-http>=1.27",
 ]
 
 [project.optional-dependencies]
-# Heavy, phase-scoped extras — installed when their phase begins (keeps base sync fast).
+# Heavy, phase-scoped extra — installed only for the swebench-equivalence job.
 harness = ["swebench>=3.0"]
-obs = [
-    "opentelemetry-sdk>=1.27",
-    "opentelemetry-exporter-otlp-proto-http>=1.27",
-    "langfuse>=2.50",
-]
-all = ["forgejudge[harness,obs]"]
 
 [dependency-groups]
 dev = ["pytest>=8", "pytest-cov>=5", "ruff>=0.6"]
