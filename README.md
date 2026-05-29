@@ -9,11 +9,19 @@
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org)
 
-**▶ Live leaderboard: [forgejudge.pages.dev](https://forgejudge.pages.dev)** · [methodology](https://forgejudge.pages.dev/methodology) · [model swap](https://forgejudge.pages.dev/model-swap)
+**▶ Live leaderboard: [forgejudge.pages.dev](https://forgejudge.pages.dev)** · [playground](https://forgejudge.pages.dev/playground) · [methodology](https://forgejudge.pages.dev/methodology) · [model swap](https://forgejudge.pages.dev/model-swap) · [MCP registry](https://registry.modelcontextprotocol.io/v0/servers?search=forgejudge)
 
 </div>
 
-> **Current numbers** (hidden-test, $0 free tier, same harness): `llama-3.3-70b` resolves **10/12 (83.3%)**, `llama-3.1-8b` **8/12 (66.7%)** — the score rises with the better model while the harness stays fixed. Every run [deep-links its Langfuse trace](https://forgejudge.pages.dev).
+> **Current numbers** (hidden-test = the agent never sees the failing test; $0 free tier; same harness, swap the model; 12 tasks × 3 seeds = 108 runs):
+>
+> | Model | pass@1 | pass@3 |
+> |---|---|---|
+> | `gpt-oss-120b` | 83.3% | 91.7% |
+> | `llama-3.3-70b` | 83.3% | 100% |
+> | `llama-3.1-8b` | 41.7% | 66.7% |
+>
+> The score rises with the better model while the harness stays fixed (model-swap proof), and `pass@3 > pass@1` shows real run-to-run variance — which is exactly why the CI gate is multi-seed. Every run [deep-links its Langfuse trace](https://forgejudge.pages.dev).
 
 ForgeJudge is the only open-source autonomous software-engineering agent that **proves its quality in public on every commit**: a hand-rolled single-agent solver, a deterministic execution-as-judge harness, an always-on leaderboard with per-run traces, and a CI gate that blocks regressions — all on a **`$0` / self-hostable** stack against a **contamination-resistant, intrinsically-verifiable** golden set.
 
