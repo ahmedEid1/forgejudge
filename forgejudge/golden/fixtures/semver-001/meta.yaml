@@ -10,6 +10,7 @@ env_image: "python:3.12-slim"
 fail_to_pass:
   - "test_semver_bug.py::test_double_digit_minor"
   - "test_semver_bug.py::test_double_digit_symmetry"
+  - "test_semver_bug.py::test_shorter_version_equals_zero_padded"
 pass_to_pass:
   - "test_semver.py::test_equal"
   - "test_semver.py::test_simple_greater"

@@ -67,6 +67,25 @@ def _write_weak_task(root: Path) -> Path:
 
 
 @pytest.mark.slow
+def test_no_golden_task_is_mutation_weak():
+    """Credibility invariant: no task in the golden set may have weak tests.
+
+    'inconclusive' (no AST-mutable nodes in the patched region — e.g. regex /
+    string / call-order code) is allowed; such tasks are still intrinsically
+    verified. Only 'weak' (mutants generated and survived) is forbidden.
+    """
+    from forgejudge.golden.build_dataset import discover_task_dirs
+
+    weak = []
+    for d in discover_task_dirs():
+        task, _ = build_task(d)
+        r = harden_check(task, d)
+        if r.status == "weak":
+            weak.append((task.instance_id, r.mutation_score, r.survivors))
+    assert not weak, f"weak (under-tested) golden tasks: {weak}"
+
+
+@pytest.mark.slow
 def test_weak_tests_are_flagged(tmp_path):
     d = _write_weak_task(tmp_path)
     task, _gold = build_task(d)
