@@ -7,6 +7,7 @@ mutants. A task whose tests pass under deliberately-wrong code must be flagged.
 
 from pathlib import Path
 
+import pytest
 import yaml
 
 from forgejudge.golden.build_dataset import build_task
@@ -23,6 +24,7 @@ def test_generate_mutants_produces_variants():
     assert all(m != src for _, m in mutants)
 
 
+@pytest.mark.slow
 def test_strong_fixture_survives_hardening():
     task, gold = build_task(SEMVER_DIR)
     result = harden_check(task, SEMVER_DIR)
@@ -64,6 +66,7 @@ def _write_weak_task(root: Path) -> Path:
     return d
 
 
+@pytest.mark.slow
 def test_weak_tests_are_flagged(tmp_path):
     d = _write_weak_task(tmp_path)
     task, _gold = build_task(d)

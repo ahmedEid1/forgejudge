@@ -41,6 +41,7 @@ def test_owned_task_provenance(task_dir):
     assert task.base_commit.strip(), f"{task.instance_id}: base_commit is empty"
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "task_dir", OWNED_TASK_DIRS, ids=[d.name for d in OWNED_TASK_DIRS]
 )

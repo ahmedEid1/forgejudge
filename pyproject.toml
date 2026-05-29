@@ -42,3 +42,6 @@ packages = ["forgejudge"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+markers = [
+    "slow: end-to-end golden validation / mutation (spawns many pytest subprocesses)",
+]

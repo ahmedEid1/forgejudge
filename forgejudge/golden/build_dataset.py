@@ -99,21 +99,29 @@ def build_task(task_dir: Path) -> tuple[Task, str]:
 
 
 def validate_task(task: Task, gold_patch: str, task_dir: Path) -> FixtureValidation:
-    """Run pytest to prove buggy->FAIL and gold->PASS for ``task``."""
-    tmp = Path(tempfile.mkdtemp(prefix=f"fjval-{task_dir.name}-"))
+    """Run pytest to prove buggy->FAIL and gold->PASS for ``task``.
+
+    The buggy and gold phases run in *separate* trees so an in-place patch can
+    never be shadowed by a stale interpreter/bytecode cache from a prior phase.
+    """
+    buggy = Path(tempfile.mkdtemp(prefix=f"fjval-buggy-{task_dir.name}-"))
+    gold = Path(tempfile.mkdtemp(prefix=f"fjval-gold-{task_dir.name}-"))
     try:
-        copy_tree(task_dir / "base", tmp)
-        init_base_repo(tmp)
-        apply_unified_diff(tmp, task.test_patch)
+        copy_tree(task_dir / "base", buggy)
+        init_base_repo(buggy)
+        apply_unified_diff(buggy, task.test_patch)
+        buggy_f2p, f2p_total, l1 = run_nodeids(buggy, task.fail_to_pass)
+        buggy_p2p, p2p_total, l2 = run_nodeids(buggy, task.pass_to_pass)
 
-        buggy_f2p, f2p_total, l1 = run_nodeids(tmp, task.fail_to_pass)
-        buggy_p2p, p2p_total, l2 = run_nodeids(tmp, task.pass_to_pass)
-
-        apply_unified_diff(tmp, gold_patch)
-        gold_f2p, _, l3 = run_nodeids(tmp, task.fail_to_pass)
-        gold_p2p, _, l4 = run_nodeids(tmp, task.pass_to_pass)
+        copy_tree(task_dir / "base", gold)
+        init_base_repo(gold)
+        apply_unified_diff(gold, task.test_patch)
+        apply_unified_diff(gold, gold_patch)
+        gold_f2p, _, l3 = run_nodeids(gold, task.fail_to_pass)
+        gold_p2p, _, l4 = run_nodeids(gold, task.pass_to_pass)
     finally:
-        shutil.rmtree(tmp, ignore_errors=True)
+        shutil.rmtree(buggy, ignore_errors=True)
+        shutil.rmtree(gold, ignore_errors=True)
 
     return FixtureValidation(
         buggy_f2p_passed=buggy_f2p,

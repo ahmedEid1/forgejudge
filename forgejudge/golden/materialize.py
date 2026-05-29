@@ -11,6 +11,7 @@ with git, so authors never hand-write diffs. Patch application also goes through
 git (``git apply``, with a 3-way fallback), mirroring the SWE-bench harness.
 """
 
+import os
 import shutil
 import subprocess
 import sys
@@ -73,8 +74,15 @@ def apply_unified_diff(workdir: str | Path, diff_text: str) -> None:
 
 
 def staged_diff_against_base(workdir: str | Path) -> str:
-    """Stage all changes and return the unified diff vs the base commit."""
+    """Stage all changes and return the unified diff vs the base commit.
+
+    ``--renormalize`` forces git to re-hash tracked files instead of trusting its
+    ``(mtime, size)`` stat cache. Without it, an edit that preserves a file's byte
+    size (e.g. swapping ``a, b`` -> ``b, a``) on a copy that kept the original
+    mtime is silently treated as unchanged, yielding an empty (wrong) diff.
+    """
     git(workdir, "add", "-A")
+    git(workdir, "add", "--renormalize", "-A")
     return git(workdir, "diff", "--cached", "--no-color").stdout
 
 
@@ -95,13 +103,19 @@ def run_nodeids(
     python = python or sys.executable
     passed = 0
     logs: list[str] = []
+    # ``-B`` / PYTHONDONTWRITEBYTECODE: never write .pyc. Critical for correctness —
+    # when a source file is patched in place and the edit preserves its byte size
+    # within the same wall-clock second, CPython's (mtime, size) .pyc cache would
+    # otherwise serve STALE bytecode for the newly-patched file.
+    env = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
     for nodeid in nodeids:
         res = subprocess.run(
-            [python, "-m", "pytest", nodeid, "-q", "--no-header", "-p", "no:cacheprovider"],
+            [python, "-B", "-m", "pytest", nodeid, "-q", "--no-header", "-p", "no:cacheprovider"],
             cwd=str(workdir),
             capture_output=True,
             text=True,
             check=False,
+            env=env,
         )
         ok = res.returncode == 0
         passed += int(ok)

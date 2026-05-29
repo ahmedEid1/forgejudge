@@ -13,6 +13,7 @@ def test_at_least_one_fixture_exists():
     assert len(TASK_DIRS) >= 1
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("task_dir", TASK_DIRS, ids=[d.name for d in TASK_DIRS])
 def test_fixture_is_intrinsically_verifiable(task_dir):
     task, gold = build_task(task_dir)
