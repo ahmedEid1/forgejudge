@@ -1,0 +1,19 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-29/server.json",
+  "name": "io.github.ahmedeid1/forgejudge",
+  "description": "Open eval leaderboard + CI gate for autonomous coding agents. Tools: solve_issue (run the agent on a golden task and grade it), get_run (a run's score + Langfuse trace), get_leaderboard (per-model pass@1/pass@3, cost, tokens).",
+  "version": "0.1.0",
+  "repository": {
+    "url": "https://github.com/ahmedEid1/forgejudge",
+    "source": "github"
+  },
+  "websiteUrl": "https://forgejudge.pages.dev",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "forgejudge",
+      "version": "0.0.0",
+      "transport": { "type": "stdio" }
+    }
+  ]
+}

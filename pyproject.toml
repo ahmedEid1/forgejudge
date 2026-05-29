@@ -24,6 +24,9 @@ dependencies = [
 [project.optional-dependencies]
 # Heavy, phase-scoped extra — installed only for the swebench-equivalence job.
 harness = ["swebench>=3.0"]
+mcp = [
+    "fastmcp>=3.3.1",
+]
 
 [dependency-groups]
 dev = ["pytest>=8", "pytest-cov>=5", "ruff>=0.6"]
@@ -42,4 +45,5 @@ markers = [
     "slow: end-to-end golden validation / mutation (spawns many pytest subprocesses)",
     "swebench: requires the optional 'harness' extra (official swebench grading)",
     "db: requires a Postgres/pgvector database (DATABASE_URL / FJ_LOCAL_DATABASE_URL)",
+    "mcp: requires the optional 'mcp' extra (fastmcp)",
 ]
