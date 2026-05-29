@@ -53,6 +53,8 @@ class SolveResult:
     reverted_edits: int = 0                 # edits the syntax gate rejected
     critic_rejections: int = 0              # edits the critic rejected before testing
     trace_url: str = ""                     # deep link into the run's Langfuse trace
+    tokens_in: int = 0
+    tokens_out: int = 0
 
 
 def _is_test_path(rel: str) -> bool:
@@ -105,6 +107,8 @@ def solve(
     work = Path(tempfile.mkdtemp(prefix=f"fjsolve-{task.instance_id}-"))
     steps = 0
     cost = 0.0
+    tok_in = 0
+    tok_out = 0
     reverted = 0
     critic_rejections = 0
     status: str = "budget_exceeded"
@@ -146,6 +150,8 @@ def solve(
                                     tokens_out=comp.tokens_out, cost=comp.cost_usd)
                 steps += 1
                 cost += comp.cost_usd
+                tok_in += comp.tokens_in
+                tok_out += comp.tokens_out
 
                 code = extract_code(comp.text)
                 if code is None:
@@ -191,8 +197,10 @@ def solve(
             )
         except Exception:  # noqa: BLE001 - any failure is reported as an errored run
             root.set_attribute("forgejudge.error", True)
-            return SolveResult("", "error", steps, cost, False, reverted, critic_rejections, trace_url)
+            return SolveResult("", "error", steps, cost, False, reverted, critic_rejections,
+                               trace_url, tok_in, tok_out)
         finally:
             shutil.rmtree(work, ignore_errors=True)
 
-    return SolveResult(patch, status, steps, cost, status == "ok", reverted, critic_rejections, trace_url)
+    return SolveResult(patch, status, steps, cost, status == "ok", reverted, critic_rejections,
+                       trace_url, tok_in, tok_out)

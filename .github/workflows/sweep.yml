@@ -1,0 +1,56 @@
+name: sweep
+
+# Scheduled leaderboard refresh: run the agent over the golden set and persist
+# RunRecords to Neon. NOTE: GitHub's `schedule` auto-disables after 60 days idle
+# and runs late; the design prefers a Cloudflare Cron Trigger firing
+# repository_dispatch. This schedule is the fallback.
+
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: "litellm model id"
+        default: "groq/llama-3.3-70b-versatile"
+      seeds:
+        description: "comma-separated seeds"
+        default: "0,1,2"
+  schedule:
+    - cron: "17 4 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sweep
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync
+
+      - name: Run sweep -> Neon
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
+          LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
+          LANGFUSE_HOST: ${{ secrets.LANGFUSE_HOST }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          MODEL: ${{ github.event.inputs.model || 'groq/llama-3.3-70b-versatile' }}
+          SEEDS: ${{ github.event.inputs.seeds || '0,1,2' }}
+        run: |
+          uv run python -m forgejudge.eval.sweep --model "$MODEL" --seeds "$SEEDS" --out runs.jsonl
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sweep-runs
+          path: runs.jsonl
+          if-no-files-found: warn

@@ -41,4 +41,5 @@ addopts = "-q"
 markers = [
     "slow: end-to-end golden validation / mutation (spawns many pytest subprocesses)",
     "swebench: requires the optional 'harness' extra (official swebench grading)",
+    "db: requires a Postgres/pgvector database (DATABASE_URL / FJ_LOCAL_DATABASE_URL)",
 ]

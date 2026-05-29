@@ -67,14 +67,19 @@ def _chain_for(role: Role) -> list[str]:
     return chain
 
 
-def complete(messages: list[dict], *, role: Role, run_id: str) -> Completion:
+def complete(
+    messages: list[dict], *, role: Role, run_id: str, model: str | None = None
+) -> Completion:
     """Complete ``messages`` for ``role``, walking that role's fallback chain.
 
     Each model in the chain is tried in order; the first to return wins. The call's
     cost is added to the ledger for ``run_id``. If every model raises, a
     :class:`RuntimeError` is raised naming the chain that was attempted.
+
+    ``model`` overrides the chain with a single model (used by the leaderboard's
+    model-swap comparison — same harness, different model).
     """
-    chain = _chain_for(role)
+    chain = [model] if model else _chain_for(role)
     errors: list[str] = []
     for model in chain:
         try:
