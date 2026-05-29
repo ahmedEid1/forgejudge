@@ -9,7 +9,7 @@
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org)
 
-**▶ Live leaderboard: [forgejudge.pages.dev](https://forgejudge.pages.dev)** · [playground](https://forgejudge.pages.dev/playground) · [methodology](https://forgejudge.pages.dev/methodology) · [model swap](https://forgejudge.pages.dev/model-swap) · [MCP registry](https://registry.modelcontextprotocol.io/v0/servers?search=forgejudge)
+**▶ Live leaderboard: [forgejudge.ahmedhobeishy.tech](https://forgejudge.ahmedhobeishy.tech)** · [playground](https://forgejudge.ahmedhobeishy.tech/playground) · [methodology](https://forgejudge.ahmedhobeishy.tech/methodology) · [model swap](https://forgejudge.ahmedhobeishy.tech/model-swap) · [MCP registry](https://registry.modelcontextprotocol.io/v0/servers?search=forgejudge)
 
 </div>
 
@@ -21,7 +21,7 @@
 > | `llama-3.3-70b` | 83.3% | 100% |
 > | `llama-3.1-8b` | 41.7% | 66.7% |
 >
-> The score rises with the better model while the harness stays fixed (model-swap proof), and `pass@3 > pass@1` shows real run-to-run variance — which is exactly why the CI gate is multi-seed. Every run [deep-links its Langfuse trace](https://forgejudge.pages.dev).
+> The score rises with the better model while the harness stays fixed (model-swap proof), and `pass@3 > pass@1` shows real run-to-run variance — which is exactly why the CI gate is multi-seed. Every run [deep-links its Langfuse trace](https://forgejudge.ahmedhobeishy.tech).
 
 ForgeJudge is the only open-source autonomous software-engineering agent that **proves its quality in public on every commit**: a hand-rolled single-agent solver, a deterministic execution-as-judge harness, an always-on leaderboard with per-run traces, and a CI gate that blocks regressions — all on a **`$0` / self-hostable** stack against a **contamination-resistant, intrinsically-verifiable** golden set.
 
