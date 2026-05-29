@@ -28,3 +28,5 @@ Autonomous coding agents publish a headline number; benchmarks publish a leaderb
 ## License
 
 [MIT](./LICENSE) © 2026 Ahmed Hobeishy. Imports and attributes the MIT-licensed [`swebench`](https://github.com/SWE-bench/SWE-bench) grading harness.
+
+<!-- ci trigger check -->
