@@ -1,0 +1,47 @@
+# --- Secrets ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# --- Python ---
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+coverage.xml
+htmlcov/
+.mutmut-cache
+mutmut-results/
+uv.lock.bak
+
+# --- Node / Next.js (dashboard, mcp client) ---
+node_modules/
+.next/
+out/
+.turbo/
+dist-ssr/
+*.tsbuildinfo
+.vercel/
+
+# --- Tooling / OS ---
+.DS_Store
+*.log
+.idea/
+.vscode/
+*.local
+
+# --- Build / eval artifacts ---
+/tmp_runs/
+/.fj_cache/
+*.trace.json
+phoenix_data/
