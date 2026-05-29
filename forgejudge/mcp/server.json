@@ -1,6 +1,6 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-29/server.json",
-  "name": "io.github.ahmedeid1/forgejudge",
+  "name": "io.github.ahmedEid1/forgejudge",
   "description": "Open eval leaderboard + CI gate for autonomous coding agents (solve, score, trace).",
   "version": "0.1.0",
   "repository": {
