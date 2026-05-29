@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8" />
+<style>
+  * { margin: 0; box-sizing: border-box; }
+  html, body { width: 1200px; height: 630px; }
+  body {
+    background: radial-gradient(1200px 500px at 80% -10%, #15324a 0%, #0b0f14 60%);
+    color: #e6edf3; font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+    padding: 64px 72px; position: relative; overflow: hidden;
+  }
+  .brand { font-size: 30px; font-weight: 700; letter-spacing: -0.01em; color: #8b98a5; }
+  .brand b { color: #4cc2ff; }
+  h1 { font-size: 54px; line-height: 1.1; letter-spacing: -0.02em; margin: 22px 0 16px; max-width: 18ch; }
+  h1 .hl { color: #4cc2ff; }
+  p.sub { font-size: 23px; color: #aab6c2; max-width: 46ch; line-height: 1.4; }
+  .pills { position: absolute; left: 72px; bottom: 128px; display: flex; gap: 12px; flex-wrap: wrap; max-width: 1056px; }
+  .pill { background: #131a22; border: 1px solid #243140; border-radius: 999px; padding: 9px 18px; font-size: 19px; color: #c4ced8; }
+  .pill b { color: #fff; }
+  .foot { position: absolute; left: 72px; bottom: 56px; font-family: ui-monospace, Menlo, monospace; font-size: 22px; color: #8b98a5; }
+  .foot b { color: #4cc2ff; }
+  .mono { font-family: ui-monospace, Menlo, monospace; }
+</style></head>
+<body>
+  <div class="brand"><b>Forge</b>Judge</div>
+  <h1>Execution-as-judge for <span class="hl">autonomous coding agents</span>.</h1>
+  <p class="sub">An open, always-on leaderboard + CI gate — every patch sandboxed, every run traced.</p>
+  <div class="pills">
+    <span class="pill">⚖️ <b>swebench-equivalent</b></span>
+    <span class="pill">🔒 <b>cheat-resistant</b></span>
+    <span class="pill">🧬 <b>mutation-hardened</b></span>
+    <span class="pill">📈 <b>multi-seed CI gate</b></span>
+    <span class="pill">🔭 <b>per-run traces</b></span>
+  </div>
+  <div class="foot"><b>forgejudge.pages.dev</b> &nbsp;·&nbsp; model-swap: <span class="mono">8b 42%&nbsp;→&nbsp;70b 83% pass@1</span> &nbsp;·&nbsp; harness fixed</div>
+</body></html>
