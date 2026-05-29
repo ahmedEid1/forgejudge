@@ -18,7 +18,7 @@ SEMVER = "fixture-semver-001"
 
 
 def _const(text: str):
-    def fn(messages, *, role, run_id):
+    def fn(messages, *, role, run_id, seed=None):
         return Completion(text=text, tokens_in=5, tokens_out=5, cost_usd=0.0, model="fake")
     return fn
 
@@ -26,7 +26,7 @@ def _const(text: str):
 def _sequence(texts: list[str]):
     calls = {"i": 0}
 
-    def fn(messages, *, role, run_id):
+    def fn(messages, *, role, run_id, seed=None):
         t = texts[min(calls["i"], len(texts) - 1)]
         calls["i"] += 1
         return Completion(text=t, tokens_in=5, tokens_out=5, cost_usd=0.0, model="fake")

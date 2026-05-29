@@ -100,3 +100,172 @@ def test_solve_issue_impl_grades_a_gold_patch():
 def test_solve_issue_impl_rejects_unknown_task():
     with pytest.raises(ValueError, match="unknown task_id"):
         _solve_issue_impl("does-not-exist", solve_fn=lambda *a, **k: None)
+
+
+# --------------------------------------------------------------------------- #
+# Appended coverage tests (handlers + error/not-found paths). All hermetic:    #
+# db.connect / db.leaderboard / db.get_run are monkeypatched so no real DB     #
+# socket is opened, and the solver is faked so no LLM/provider call is made.   #
+# --------------------------------------------------------------------------- #
+
+from forgejudge.types import GradeResult, RunRecord  # noqa: E402
+
+
+class _FakeConn:
+    """Stand-in psycopg connection that records whether close() ran."""
+
+    def __init__(self) -> None:
+        self.closed = False
+
+    def close(self) -> None:
+        self.closed = True
+
+
+def _make_run_record() -> RunRecord:
+    return RunRecord(
+        run_id="run-42",
+        task_id=SEMVER,
+        model="claude-x",
+        scaffold_version="v1",
+        seed=0,
+        resolved=True,
+        grade=GradeResult(f2p_passed=2, f2p_total=2, p2p_passed=3, p2p_total=3, logs="ok"),
+        patch="diff --git a b",
+        tokens_in=10,
+        tokens_out=20,
+        cost_usd=0.01,
+        wall_clock_s=1.5,
+        trace_url="https://lf/run-42",
+        judge_score=None,
+        status="ok",
+        created_at="2026-01-01",
+    )
+
+
+def test_leaderboard_impl_passes_through_rows_and_closes_conn(monkeypatch):
+    from forgejudge.mcp import server as srv
+
+    fake = _FakeConn()
+    rows = [{"model": "claude-x", "pass_at_1": 0.5}]
+    monkeypatch.setattr(srv.db, "connect", lambda: fake)
+    monkeypatch.setattr(srv.db, "leaderboard", lambda conn: rows)
+
+    out = srv._leaderboard_impl()
+
+    assert out is rows
+    assert fake.closed is True  # finally: conn.close() ran
+
+
+def test_leaderboard_impl_closes_conn_even_when_query_raises(monkeypatch):
+    from forgejudge.mcp import server as srv
+
+    fake = _FakeConn()
+
+    def boom(conn):
+        raise RuntimeError("query failed")
+
+    monkeypatch.setattr(srv.db, "connect", lambda: fake)
+    monkeypatch.setattr(srv.db, "leaderboard", boom)
+
+    with pytest.raises(RuntimeError, match="query failed"):
+        srv._leaderboard_impl()
+    assert fake.closed is True  # finally still ran on the error path
+
+
+def test_get_run_impl_returns_dumped_record(monkeypatch):
+    from forgejudge.mcp import server as srv
+
+    fake = _FakeConn()
+    rec = _make_run_record()
+    monkeypatch.setattr(srv.db, "connect", lambda: fake)
+    monkeypatch.setattr(srv.db, "get_run", lambda conn, run_id: rec)
+
+    out = srv._get_run_impl("run-42")
+
+    assert isinstance(out, dict)
+    assert out["run_id"] == "run-42"
+    assert out["trace_url"] == "https://lf/run-42"
+    assert out == rec.model_dump()
+    assert fake.closed is True
+
+
+def test_get_run_impl_returns_none_when_not_found(monkeypatch):
+    from forgejudge.mcp import server as srv
+
+    fake = _FakeConn()
+    monkeypatch.setattr(srv.db, "connect", lambda: fake)
+    monkeypatch.setattr(srv.db, "get_run", lambda conn, run_id: None)
+
+    out = srv._get_run_impl("missing")
+
+    assert out is None  # not-found branch
+    assert fake.closed is True
+
+
+def test_get_leaderboard_tool_wrapper_delegates_to_impl(monkeypatch):
+    from forgejudge.mcp import server as srv
+
+    sentinel = [{"model": "m"}]
+    monkeypatch.setattr(srv, "_leaderboard_impl", lambda: sentinel)
+    assert srv.get_leaderboard() is sentinel
+
+
+def test_get_run_tool_wrapper_delegates_to_impl(monkeypatch):
+    from forgejudge.mcp import server as srv
+
+    captured = {}
+
+    def fake_impl(run_id):
+        captured["run_id"] = run_id
+        return {"run_id": run_id}
+
+    monkeypatch.setattr(srv, "_get_run_impl", fake_impl)
+    out = srv.get_run("run-99")
+    assert out == {"run_id": "run-99"}
+    assert captured["run_id"] == "run-99"
+
+
+def test_solve_issue_tool_wrapper_forwards_args_to_impl(monkeypatch):
+    from forgejudge.mcp import server as srv
+
+    captured = {}
+
+    def fake_impl(task_id, *, budget_usd, seed):
+        captured.update(task_id=task_id, budget_usd=budget_usd, seed=seed)
+        return {"task_id": task_id}
+
+    monkeypatch.setattr(srv, "_solve_issue_impl", fake_impl)
+    out = srv.solve_issue("t1", budget_usd=0.25, seed=7)
+    assert out == {"task_id": "t1"}
+    assert captured == {"task_id": "t1", "budget_usd": 0.25, "seed": 7}
+
+
+def test_solve_issue_impl_lazy_imports_default_solver(monkeypatch):
+    """With solve_fn=None the impl must lazily import the real solver symbol
+    (server.py:53). We replace solver.solve with a fake so no LLM is called."""
+    import forgejudge.agent.solver as solver_mod
+
+    def fake_solve(task, *, run_id, budget_usd, seed):
+        assert run_id == f"mcp-{SEMVER}-seed0"
+        return SolveResult(
+            patch="", status="error", steps=0, cost_usd=0.0,
+            resolved_in_loop=False, trace_url="https://lf/lazy",
+        )
+
+    monkeypatch.setattr(solver_mod, "solve", fake_solve)
+
+    out = _solve_issue_impl(SEMVER)  # solve_fn defaults to None -> lazy import path
+
+    assert out["task_id"] == SEMVER
+    assert out["status"] == "error"
+    assert out["trace_url"] == "https://lf/lazy"
+    assert out["resolved"] is False  # empty patch grades as not resolved
+
+
+def test_main_runs_stdio_transport(monkeypatch):
+    from forgejudge.mcp import server as srv
+
+    calls = {}
+    monkeypatch.setattr(srv.mcp, "run", lambda *, transport: calls.setdefault("transport", transport))
+    srv.main()
+    assert calls["transport"] == "stdio"  # matches the manifest's declared transport

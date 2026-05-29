@@ -191,18 +191,29 @@ def test_our_verdict_matches_official_swebench(patch_fn, expected_resolved):
     assert ours == official == expected_resolved
 
 
-def test_swebench_grading_rejects_a_skipped_fail_to_pass():
-    """The equivalence check, fed REAL statuses, must agree that a SKIPPED
-    FAIL_TO_PASS node is unresolved — the case the old rc-based status_map hid."""
+def test_forgejudge_is_stricter_than_swebench_on_skipped_f2p():
+    """ForgeJudge deliberately diverges from — and is stricter than — the official
+    swebench grading on a SKIPPED FAIL_TO_PASS node.
+
+    Empirically (swebench 4.1.0), a SKIPPED test is neither a ``success`` nor a
+    ``failure`` in ``get_eval_tests_report``; with an empty failure list the run is
+    rated ``RESOLVED_FULL``. So a candidate that makes the oracle FAIL_TO_PASS tests
+    *skip* (rather than run) is graded RESOLVED by swebench — a silent cheat vector.
+
+    ForgeJudge closes that gap: a node passes ONLY when pytest reports PASSED/XFAIL
+    (``_PASSING_STATUSES``), so a skipped FAIL_TO_PASS is not-passed and the task is
+    unresolved. This test pins both sides of the divergence so neither can drift."""
     pytest.importorskip("swebench")
-    from forgejudge.harness.swebench_grade import (
-        is_resolved_by_swebench,
-        swebench_resolution_status,
-    )
+    from forgejudge.golden.materialize import _PASSING_STATUSES
+    from forgejudge.harness.swebench_grade import is_resolved_by_swebench
 
     task = TASKS[SEMVER]
     status_map = dict.fromkeys(task.pass_to_pass, "PASSED")
-    # f2p nodes "pass" via SKIPPED — swebench's test_passed must reject this.
     status_map.update(dict.fromkeys(task.fail_to_pass, "SKIPPED"))
-    assert is_resolved_by_swebench(task, status_map) is False
-    assert swebench_resolution_status(task, status_map) != "RESOLVED_FULL"
+
+    # Official swebench is lenient here — it rates a skipped f2p RESOLVED_FULL.
+    assert is_resolved_by_swebench(task, status_map) is True
+    # ForgeJudge's rule (a node passes iff PASSED/XFAIL) treats the skip as a miss,
+    # so the FAIL_TO_PASS set is not satisfied and the run is unresolved.
+    fj_f2p_passed = all(status_map[n] in _PASSING_STATUSES for n in task.fail_to_pass)
+    assert fj_f2p_passed is False

@@ -222,3 +222,258 @@ def test_scores_from_run_artifacts_still_lists_per_file_rates(tmp_path):
     _write_shard(d, "b.jsonl", [1, 1, 0])
     scores = scores_from_run_artifacts(d)
     assert scores == [1.0, 2 / 3]
+
+
+# === APPENDED COVERAGE TESTS (gate.py lines 75, 216, 264-302, 306) ============
+#
+# Targets: the _t_critical normal-approx fallback, the blank-line skip in
+# resolution_rate_from_run_artifacts, the artifact-driven scores_from_run_
+# artifacts loader against blank/empty files, and every branch of main().
+
+import runpy  # noqa: E402
+import statistics  # noqa: E402
+import sys  # noqa: E402
+import warnings  # noqa: E402
+
+from forgejudge.eval.gate import _t_critical, main  # noqa: E402
+
+# --- Line 75: large-dof fall-through to the normal-z approximation -----------
+
+
+def test_t_critical_uses_table_for_small_dof():
+    assert _t_critical(1) == 12.706
+    assert _t_critical(2) == 4.30265
+
+
+def test_t_critical_falls_back_to_normal_z_for_large_dof():
+    """dof beyond the vendored table (here 30) must use z=1.96, not crash."""
+    assert _t_critical(30) == 1.96
+    assert _t_critical(11) == 1.96  # 11 is the first dof past the table
+
+
+def test_mean_ci_large_n_uses_normal_z():
+    """With n>11 seeds the half-width must be computed from z=1.96 (dof=n-1
+    is outside the Student-t table), exercising the fallback inside mean_ci.
+    """
+    scores = [0.5, 0.6] * 8  # n=16 -> dof=15, beyond the table
+    mean, lower, upper = mean_ci(scores)
+    stderr = statistics.stdev(scores) / math.sqrt(len(scores))
+    expected_half = 1.96 * stderr
+    assert math.isclose(upper - mean, expected_half, rel_tol=1e-9)
+    assert math.isclose(mean - lower, expected_half, rel_tol=1e-9)
+
+
+# --- Line 216: blank lines inside a .jsonl shard are skipped, not counted ----
+
+
+def test_resolution_rate_skips_blank_lines(tmp_path):
+    """Blank/whitespace lines between records must not inflate the total."""
+    d = tmp_path / "artifacts"
+    d.mkdir()
+    body = (
+        json.dumps({"task_id": "a", "resolved": True}) + "\n"
+        "\n"  # blank line
+        "   \n"  # whitespace-only line
+        + json.dumps({"task_id": "b", "resolved": False}) + "\n"
+    )
+    (d / "shard.jsonl").write_text(body)
+    rate, resolved, total = resolution_rate_from_run_artifacts(d)
+    assert (resolved, total) == (1, 2)
+    assert math.isclose(rate, 0.5)
+
+
+def test_scores_from_run_artifacts_skips_empty_file(tmp_path):
+    """A jsonl with no records contributes no score (the `if recs` guard)."""
+    d = tmp_path / "artifacts"
+    d.mkdir()
+    _write_shard(d, "full.jsonl", [1, 1, 0])
+    (d / "empty.jsonl").write_text("\n   \n")  # only blank lines -> no recs
+    scores = scores_from_run_artifacts(d)
+    assert scores == [2 / 3]  # empty file produced no entry
+
+
+# --- Lines 264-302: main() across every branch -------------------------------
+
+
+def _run_main(monkeypatch, argv, env=None):
+    """Invoke main() with patched argv and a clean env, capturing SystemExit."""
+    monkeypatch.setattr(sys, "argv", ["forgejudge.eval.gate", *argv])
+    if env is not None:
+        for k, v in env.items():
+            if v is None:
+                monkeypatch.delenv(k, raising=False)
+            else:
+                monkeypatch.setenv(k, v)
+    else:
+        monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+    with pytest.raises(SystemExit) as exc:
+        main()
+    return exc.value.code
+
+
+def test_main_seed_mode_pass_exits_zero(tmp_path, monkeypatch, capsys):
+    baseline = tmp_path / "baseline.json"
+    candidate = tmp_path / "candidate.json"
+    baseline.write_text(json.dumps([0.6, 0.6, 0.6]))
+    candidate.write_text(json.dumps([0.6, 0.6, 0.6]))
+    code = _run_main(
+        monkeypatch,
+        ["--mode", "seed", "--baseline", str(baseline), "--candidate", str(candidate)],
+    )
+    assert code == 0
+    assert "PASS" in capsys.readouterr().out
+
+
+def test_main_seed_mode_regression_exits_one(tmp_path, monkeypatch, capsys):
+    baseline = tmp_path / "baseline.json"
+    candidate = tmp_path / "candidate.json"
+    baseline.write_text(json.dumps([0.8, 0.82, 0.81, 0.79]))
+    candidate.write_text(json.dumps([0.4, 0.42, 0.38, 0.41]))
+    code = _run_main(
+        monkeypatch,
+        ["--mode", "seed", "--baseline", str(baseline), "--candidate", str(candidate)],
+    )
+    assert code == 1
+    assert "FAIL" in capsys.readouterr().out
+
+
+def test_main_seed_mode_candidate_from_run_artifacts(tmp_path, monkeypatch, capsys):
+    """--candidate-runs path: scores are loaded per-file from the artifacts dir."""
+    baseline = tmp_path / "baseline.json"
+    baseline.write_text(json.dumps([0.9, 0.9, 0.9]))
+    runs = tmp_path / "runs"
+    runs.mkdir()
+    # Two seed files, each a high rate -> overlaps baseline -> PASS.
+    _write_shard(runs, "seed-0.jsonl", [1, 1, 1])
+    _write_shard(runs, "seed-1.jsonl", [1, 1, 0])
+    code = _run_main(
+        monkeypatch,
+        ["--mode", "seed", "--baseline", str(baseline), "--candidate-runs", str(runs)],
+    )
+    assert code == 0
+    assert "PASS" in capsys.readouterr().out
+
+
+def test_main_exact_mode_pass_exits_zero(tmp_path, monkeypatch, capsys):
+    runs = tmp_path / "runs"
+    runs.mkdir()
+    _write_shard(runs, "shard-0.jsonl", [1, 1, 1])
+    _write_shard(runs, "shard-1.jsonl", [1, 1, 1])
+    code = _run_main(monkeypatch, ["--mode", "exact", "--candidate-runs", str(runs)])
+    assert code == 0
+    assert "PASS" in capsys.readouterr().out
+
+
+def test_main_exact_mode_fail_exits_one(tmp_path, monkeypatch, capsys):
+    runs = tmp_path / "runs"
+    runs.mkdir()
+    _write_shard(runs, "shard-0.jsonl", [1, 1, 0])
+    code = _run_main(monkeypatch, ["--mode", "exact", "--candidate-runs", str(runs)])
+    assert code == 1
+    assert "FAIL" in capsys.readouterr().out
+
+
+def test_main_exact_mode_requires_candidate_runs(monkeypatch):
+    """--mode exact with no --candidate-runs must ap.error() (exit code 2)."""
+    code = _run_main(monkeypatch, ["--mode", "exact"])
+    assert code == 2
+
+
+def test_main_seed_mode_requires_baseline(monkeypatch):
+    """--mode seed with no --baseline must ap.error() (exit code 2)."""
+    code = _run_main(monkeypatch, ["--mode", "seed"])
+    assert code == 2
+
+
+def test_main_seed_mode_requires_candidate_or_runs(tmp_path, monkeypatch):
+    """--baseline given but neither --candidate nor --candidate-runs errors."""
+    baseline = tmp_path / "baseline.json"
+    baseline.write_text(json.dumps([0.6, 0.6, 0.6]))
+    code = _run_main(monkeypatch, ["--mode", "seed", "--baseline", str(baseline)])
+    assert code == 2
+
+
+def test_main_writes_github_step_summary(tmp_path, monkeypatch):
+    """When GITHUB_STEP_SUMMARY is set, main() appends a markdown badge block."""
+    baseline = tmp_path / "baseline.json"
+    candidate = tmp_path / "candidate.json"
+    baseline.write_text(json.dumps([0.6, 0.6, 0.6]))
+    candidate.write_text(json.dumps([0.6, 0.6, 0.6]))
+    summary = tmp_path / "step_summary.md"
+    code = _run_main(
+        monkeypatch,
+        ["--mode", "seed", "--baseline", str(baseline), "--candidate", str(candidate)],
+        env={"GITHUB_STEP_SUMMARY": str(summary)},
+    )
+    assert code == 0
+    written = summary.read_text()
+    assert "### Regression gate:" in written
+    assert "PASS" in written
+    assert "```" in written  # fenced detail block
+
+
+def test_main_step_summary_exact_mode_uses_gold_title(tmp_path, monkeypatch):
+    """The summary heading switches to the gold title in exact mode, and the
+    badge reflects a FAIL verdict.
+    """
+    runs = tmp_path / "runs"
+    runs.mkdir()
+    _write_shard(runs, "shard-0.jsonl", [1, 0, 1])
+    summary = tmp_path / "step_summary.md"
+    code = _run_main(
+        monkeypatch,
+        ["--mode", "exact", "--candidate-runs", str(runs)],
+        env={"GITHUB_STEP_SUMMARY": str(summary)},
+    )
+    assert code == 1
+    written = summary.read_text()
+    assert "### Gold integrity gate:" in written
+    assert "FAIL" in written
+
+
+def test_main_default_mode_is_seed(tmp_path, monkeypatch, capsys):
+    """No --mode flag defaults to seed mode (the argparse default)."""
+    baseline = tmp_path / "baseline.json"
+    candidate = tmp_path / "candidate.json"
+    baseline.write_text(json.dumps([0.5, 0.5]))
+    candidate.write_text(json.dumps([0.9, 0.9]))
+    code = _run_main(
+        monkeypatch,
+        ["--baseline", str(baseline), "--candidate", str(candidate)],
+    )
+    assert code == 0
+    assert "PASS" in capsys.readouterr().out
+
+
+# --- Line 306: module run as __main__ exercises the script guard ------------
+
+
+def test_module_run_as_main_invokes_main(tmp_path, monkeypatch):
+    """Running the module with ``run_name='__main__'`` exercises the guard.
+
+    ``runpy.run_module`` re-executes the module body in-process (so coverage
+    sees line 306) with ``__name__ == '__main__'``, which calls ``main()``. A
+    real regression makes main() exit non-zero, proving the guard fired.
+    """
+    baseline = tmp_path / "baseline.json"
+    candidate = tmp_path / "candidate.json"
+    baseline.write_text(json.dumps([0.8, 0.82, 0.81, 0.79]))
+    candidate.write_text(json.dumps([0.4, 0.42, 0.38, 0.41]))
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "forgejudge.eval.gate",
+            "--mode",
+            "seed",
+            "--baseline",
+            str(baseline),
+            "--candidate",
+            str(candidate),
+        ],
+    )
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+    with pytest.raises(SystemExit) as exc, warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        runpy.run_module("forgejudge.eval.gate", run_name="__main__")
+    assert exc.value.code == 1
