@@ -1,0 +1,65 @@
+name: gate
+
+# Regression gate (spec decision #12). On every PR we re-grade the gold patches
+# across shards (deterministic, $0 — no LLM) and apply the multi-seed CI rule
+# vs a committed baseline: the build fails only when the candidate is
+# statistically worse, never on noise. This guards harness integrity (a change
+# that breaks patch application / grading is blocked). The stochastic-agent
+# resolution-rate gate runs on the scheduled sweep against stored baselines.
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  grade-gold:
+    name: grade gold shard ${{ matrix.shard }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync
+      - name: Grade gold shard
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: |
+          uv run python -m forgejudge.harness.runner_actions \
+            --patch-source gold --model gold \
+            --shard "${SHARD}" --num-shards 4 --out "runs-shard-${SHARD}.jsonl"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gate-runs-shard-${{ matrix.shard }}
+          path: runs-shard-${{ matrix.shard }}.jsonl
+          if-no-files-found: error
+
+  gate:
+    name: regression gate
+    needs: grade-gold
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Apply multi-seed regression gate
+        run: |
+          uv run python -m forgejudge.eval.gate \
+            --baseline eval/baseline_scores.json \
+            --candidate-runs artifacts

@@ -11,9 +11,14 @@ Pure standard library: no scipy/numpy. The CI is the usual large-sample normal
 approximation, which is plenty for a coarse "did we regress" guard.
 """
 
+import argparse
+import json
 import math
+import os
 import statistics
+import sys
 from dataclasses import dataclass
+from pathlib import Path
 
 
 def mean_ci(scores: list[float], z: float = 1.96) -> tuple[float, float, float]:
@@ -98,3 +103,44 @@ def regression_gate(
         baseline_lower=baseline_lower,
         candidate_upper=candidate_upper,
     )
+
+
+def scores_from_run_artifacts(artifacts_dir: str | Path) -> list[float]:
+    """Per-shard resolution rates from RunRecord ``*.jsonl`` files (one score each)."""
+    scores: list[float] = []
+    for p in sorted(Path(artifacts_dir).rglob("*.jsonl")):
+        recs = [json.loads(line) for line in p.read_text().splitlines() if line.strip()]
+        if recs:
+            scores.append(sum(1 for r in recs if r.get("resolved")) / len(recs))
+    return scores
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description="ForgeJudge multi-seed regression gate")
+    ap.add_argument("--baseline", required=True, help="JSON file: list of baseline per-seed scores")
+    ap.add_argument("--candidate", help="JSON file: list of candidate per-seed scores")
+    ap.add_argument("--candidate-runs", help="dir of RunRecord *.jsonl (per-file resolution rates)")
+    ap.add_argument("--z", type=float, default=1.96)
+    args = ap.parse_args()
+
+    baseline = json.loads(Path(args.baseline).read_text())
+    if args.candidate:
+        candidate = json.loads(Path(args.candidate).read_text())
+    elif args.candidate_runs:
+        candidate = scores_from_run_artifacts(args.candidate_runs)
+    else:
+        ap.error("provide --candidate or --candidate-runs")
+
+    result = regression_gate(baseline, candidate, z=args.z)
+    print(result.detail)
+    summary = os.getenv("GITHUB_STEP_SUMMARY")
+    if summary:
+        badge = "✅ PASS" if result.passed else "❌ FAIL"
+        Path(summary).open("a").write(
+            f"### Regression gate: {badge}\n\n```\n{result.detail}\n```\n"
+        )
+    sys.exit(0 if result.passed else 1)
+
+
+if __name__ == "__main__":
+    main()
