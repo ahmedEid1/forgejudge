@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ForgeJudge — leaderboard + CI gate for autonomous coding agents</title>
+  <meta name="description" content="An open, always-on leaderboard and CI gate for autonomous coding agents — every patch sandboxed, every run traced, every regression fails the build. $0 stack." />
+  <meta property="og:title" content="ForgeJudge" />
+  <meta property="og:description" content="Open leaderboard + CI gate for autonomous coding agents. Execution-as-judge, public traces, regression gate — on a $0 stack." />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="site"><div class="wrap">
+    <span class="brand"><span class="mark">Forge</span>Judge</span>
+    <nav class="top">
+      <a href="index.html" class="active">Leaderboard</a>
+      <a href="model-swap.html">Model swap</a>
+      <a href="methodology.html">Methodology</a>
+      <a href="calibration.html">Judge κ</a>
+      <a href="https://github.com/ahmedEid1/forgejudge" target="_blank" rel="noopener">GitHub ↗</a>
+    </nav>
+  </div></header>
+
+  <main class="wrap">
+    <section class="hero">
+      <h1>Execution-as-judge for autonomous coding agents.</h1>
+      <p class="lede">Every patch runs in a sandbox, every run has a public trace, every regression fails
+        the build — on a <b>$0</b> stack, against a contamination-resistant, intrinsically-verifiable golden set.
+        The engineered harness is the deliverable, not the resolution rate.</p>
+      <div class="pills">
+        <span class="pill">⚖️ <b>swebench-equivalent</b> grading</span>
+        <span class="pill">🔒 <b>cheat-resistant</b> (tests restored at grading)</span>
+        <span class="pill">🧬 <b>mutation-hardened</b> golden set</span>
+        <span class="pill">📈 <b>multi-seed</b> CI regression gate</span>
+        <span class="pill">🔭 per-run <b>Langfuse</b> traces</span>
+      </div>
+    </section>
+
+    <section>
+      <h2>Leaderboard</h2>
+      <div id="leaderboard"><p class="muted">Loading…</p></div>
+    </section>
+
+    <section>
+      <h2>Per-run results</h2>
+      <p class="small muted">Each run is reproducible and deep-links to its full OpenTelemetry trace in Langfuse.</p>
+      <div id="runs"><p class="muted">Loading…</p></div>
+    </section>
+  </main>
+
+  <footer class="site"><div class="wrap">
+    ForgeJudge — MIT · built by <a href="https://github.com/ahmedEid1" target="_blank" rel="noopener">Ahmed Hobeishy</a> ·
+    <a href="methodology.html">methodology &amp; decontamination</a> ·
+    <a href="impressum.html">Impressum</a> · <a href="privacy.html">Privacy</a>
+  </div></footer>
+  <script src="app.js"></script>
+</body>
+</html>

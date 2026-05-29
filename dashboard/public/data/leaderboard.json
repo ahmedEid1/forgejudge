@@ -1,0 +1,28 @@
+{
+  "generated_at": "2026-05-29T17:19:56.526071+00:00",
+  "n_tasks": 12,
+  "models": [
+    {
+      "model": "groq/llama-3.3-70b-versatile",
+      "scaffold_version": "0.1.0",
+      "n_tasks": 12,
+      "n_runs": 12,
+      "pass_at_1": 0.8333333333333334,
+      "pass_at_3": 0.8333333333333334,
+      "mean_cost_usd": 0.0,
+      "mean_tokens": 1479.5,
+      "mean_wall_s": 7.032416666666666
+    },
+    {
+      "model": "groq/llama-3.1-8b-instant",
+      "scaffold_version": "0.1.0",
+      "n_tasks": 12,
+      "n_runs": 12,
+      "pass_at_1": 0.6666666666666666,
+      "pass_at_3": 0.6666666666666666,
+      "mean_cost_usd": 0.0,
+      "mean_tokens": 1090.0,
+      "mean_wall_s": 6.635166666666666
+    }
+  ]
+}

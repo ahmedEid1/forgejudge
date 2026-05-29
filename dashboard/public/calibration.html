@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ForgeJudge — LLM-as-judge calibration (Cohen's κ)</title>
+  <meta name="description" content="The LLM-as-judge is a secondary, qualitative score only. Test execution is always the primary gate. We report Cohen's kappa against a hand-labeled gold set." />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="site"><div class="wrap">
+    <span class="brand"><span class="mark">Forge</span>Judge</span>
+    <nav class="top">
+      <a href="index.html">Leaderboard</a>
+      <a href="model-swap.html">Model swap</a>
+      <a href="methodology.html">Methodology</a>
+      <a href="calibration.html" class="active">Judge κ</a>
+      <a href="https://github.com/ahmedEid1/forgejudge" target="_blank" rel="noopener">GitHub ↗</a>
+    </nav>
+  </div></header>
+
+  <main class="wrap">
+    <section class="hero">
+      <h1>LLM-as-judge calibration</h1>
+      <p class="lede">Test execution is <b>always</b> the primary, objective gate (<code>PRIMARY_GATE = "test_execution"</code>).
+        The LLM-as-judge is a <b>secondary, qualitative</b> score (style / clarity / idiomaticity) for cases with no test
+        oracle — never a gate.</p>
+    </section>
+
+    <section>
+      <h2>Why a judge at all, and why κ</h2>
+      <p>Raw agreement overstates a judge that mostly says one label. We report <b>Cohen's κ</b> (chance-adjusted agreement)
+        against a hand-labeled gold set, on a single-answer discrete 1–5 rubric. Good rubrics land around κ ≈ 0.6–0.75.
+        The judge is recalibrated at launch and periodically; its κ is published here so the secondary score is trustworthy
+        before it is ever shown next to a run.</p>
+      <p class="note">MVP status: the judge harness and Cohen's-κ computation ship with a partial seed gold set
+        (<code>golden/judge_gold.jsonl</code>). The full ~200-example calibration set is a documented, in-progress item;
+        this page will display the live κ once the set is complete.</p>
+    </section>
+
+    <section>
+      <h2>Guardrails</h2>
+      <ul>
+        <li>Discrete single-answer rubric (mitigates verbosity / position bias).</li>
+        <li>Never used to pass or fail a run — the deterministic test transition decides resolution.</li>
+        <li>Public κ so the qualitative score is held to the same evidence bar as the objective one.</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="site"><div class="wrap">
+    ForgeJudge — MIT · <a href="methodology.html">methodology</a> ·
+    <a href="impressum.html">Impressum</a> · <a href="privacy.html">Privacy</a>
+  </div></footer>
+</body>
+</html>

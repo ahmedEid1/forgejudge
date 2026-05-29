@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ForgeJudge — model-swap comparison</title>
+  <meta name="description" content="Same harness, swap the model: the resolution rate rises with a more capable model. Proof that the harness measures the model, not a tuned scaffold." />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="site"><div class="wrap">
+    <span class="brand"><span class="mark">Forge</span>Judge</span>
+    <nav class="top">
+      <a href="index.html">Leaderboard</a>
+      <a href="model-swap.html" class="active">Model swap</a>
+      <a href="methodology.html">Methodology</a>
+      <a href="calibration.html">Judge κ</a>
+      <a href="https://github.com/ahmedEid1/forgejudge" target="_blank" rel="noopener">GitHub ↗</a>
+    </nav>
+  </div></header>
+
+  <main class="wrap">
+    <section class="hero">
+      <h1>Model swap: the harness is the deliverable</h1>
+      <p class="lede">We do <b>not</b> chase a SOTA resolution rate. To show the harness measures real capability — not a
+        tuned scaffold — we hold the harness, prompts, golden set, and budget <b>fixed</b> and swap only the model.
+        The score rises with a more capable model.</p>
+    </section>
+
+    <section>
+      <h2>Same harness, different model</h2>
+      <div id="leaderboard"><p class="muted">Loading…</p></div>
+      <p class="note">Both models run the identical hidden-test pipeline (localize → repair → validate), the same
+        deterministic, cheat-resistant grader, and the same golden set. The only variable is the model — so the gap is
+        a property of the <b>model</b>, while the apparatus stays constant. A $0 free-tier number is modest by design.</p>
+    </section>
+
+    <section>
+      <h2>Why this matters</h2>
+      <ul>
+        <li>It answers the "your rate is low vs SOTA" objection: SOTA (~88–94%) uses premium models and budgets; the
+          engineered, decontaminated, regression-gated system is the artifact, and the swap proves it discriminates.</li>
+        <li>It is reproducible: one command re-runs any leaderboard entry and regenerates its trace.</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="site"><div class="wrap">
+    ForgeJudge — MIT · <a href="methodology.html">methodology</a> ·
+    <a href="impressum.html">Impressum</a> · <a href="privacy.html">Privacy</a>
+  </div></footer>
+  <script src="app.js"></script>
+</body>
+</html>

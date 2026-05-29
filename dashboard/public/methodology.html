@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ForgeJudge — methodology & decontamination</title>
+  <meta name="description" content="How ForgeJudge resists contamination and weak tests: post-cutoff own-source tasks, mutation hardening, cheat-resistant grading, swebench-equivalent scoring, multi-seed gating." />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="site"><div class="wrap">
+    <span class="brand"><span class="mark">Forge</span>Judge</span>
+    <nav class="top">
+      <a href="index.html">Leaderboard</a>
+      <a href="model-swap.html">Model swap</a>
+      <a href="methodology.html" class="active">Methodology</a>
+      <a href="calibration.html">Judge κ</a>
+      <a href="https://github.com/ahmedEid1/forgejudge" target="_blank" rel="noopener">GitHub ↗</a>
+    </nav>
+  </div></header>
+
+  <main class="wrap">
+    <section class="hero">
+      <h1>Methodology &amp; decontamination</h1>
+      <p class="lede">SWE-bench Verified is now widely held to be contaminated — OpenAI
+        <a href="https://openai.com/index/why-we-no-longer-evaluate-swe-bench-verified/" target="_blank" rel="noopener">stopped reporting it</a>
+        in Feb 2026; >32% of "passed" cases <a href="https://arxiv.org/abs/2410.06992" target="_blank" rel="noopener">leaked the solution</a>
+        and ~31% passed on weak tests. ForgeJudge treats decontamination as a tested, documented property — not a footnote.</p>
+    </section>
+
+    <section>
+      <h2>1 · Intrinsically-verifiable tasks (no human label at scoring time)</h2>
+      <p>Every task is <b>make-CI-green</b>: a real test fails on the buggy code and must pass after the fix, while existing
+        tests stay green. Correctness is a deterministic test transition — the exact SWE-bench validity rule
+        (<code>resolved ⇔ all FAIL_TO_PASS pass ∧ all PASS_TO_PASS stay green</code>).</p>
+    </section>
+
+    <section>
+      <h2>2 · Leak-resistance</h2>
+      <ul>
+        <li><b>Own-source only.</b> Tasks come from purpose-built post-cutoff fixtures + the author's own repositories
+          (pinned commit SHAs, <code>own</code> license) — no third-party code is bundled, so there is no GPL/attribution or leak surface.</li>
+        <li><b>Symptom-only problem statements.</b> Issue text describes the observable bug, never the fix or its root cause.</li>
+        <li><b>Hidden oracle.</b> By default the agent solves from the issue against the buggy code; the FAIL_TO_PASS test is
+          applied only at grading (real SWE-bench setup) — the agent never sees the exact assertions.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>3 · Mutation hardening (weak-test detection)</h2>
+      <p>For each task we mutate the gold fix <em>within the patched region</em> and require the test suite to kill the mutants.
+        A task whose tests pass under a wrong fix is flagged <code>weak</code> and rejected — a CI invariant. Current golden set:
+        <b>7 mutation-hardened (mean score 0.89)</b>, 5 inconclusive (regex/string code with no mutable operators), <b>0 weak</b>.</p>
+    </section>
+
+    <section>
+      <h2>4 · Cheat-resistant, swebench-equivalent grading</h2>
+      <ul>
+        <li>The candidate patch may change <b>source only</b>; every test file is restored to its canonical version before grading,
+          so a patch cannot neuter or weaken the oracle to fake a resolution.</li>
+        <li>Our verdict is <b>verified equivalent</b> to the official <code>swebench.harness.grading.get_resolution_status</code>
+          in CI on every commit.</li>
+        <li>Patches run in ephemeral, isolated GitHub Actions VMs — the sandbox boundary — at $0.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>5 · Determinism &amp; the multi-seed gate</h2>
+      <p>temperature=0 does <a href="https://arxiv.org/pdf/2602.07150" target="_blank" rel="noopener">not guarantee determinism</a>
+        (pass@1 varies 2–6pp). The scorer is fully deterministic; the regression gate is <b>multi-seed</b> — a change fails the
+        build only when the candidate's CI upper bound is below the baseline's CI lower bound, so flaky single runs don't block merges.</p>
+    </section>
+
+    <section>
+      <h2>6 · The honest framing</h2>
+      <p class="note">A $0 free-model resolution rate is modest <b>by design</b>. The deliverable is the engineered, decontaminated,
+        regression-gated system — the harness, the traces, the gate — proven via the
+        <a href="model-swap.html">model-swap comparison</a> (the score rises with a better model while the harness stays fixed).</p>
+    </section>
+  </main>
+
+  <footer class="site"><div class="wrap">
+    ForgeJudge — MIT · <a href="https://github.com/ahmedEid1/forgejudge" target="_blank" rel="noopener">source</a> ·
+    <a href="impressum.html">Impressum</a> · <a href="privacy.html">Privacy</a>
+  </div></footer>
+</body>
+</html>
