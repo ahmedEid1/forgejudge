@@ -1,0 +1,16 @@
+instance_id: fixture-semver-001
+family: make_ci_green
+problem_statement: |
+  `compare('1.10.0', '1.9.0')` returns -1, but 1.10.0 is a newer version than
+  1.9.0, so it should return 1. Version ordering is wrong whenever one component
+  has more digits than the component it is compared against (e.g. 1.10 vs 1.9).
+source_license: own
+created_at: "2026-05-29"
+env_image: "python:3.12-slim"
+fail_to_pass:
+  - "test_semver_bug.py::test_double_digit_minor"
+  - "test_semver_bug.py::test_double_digit_symmetry"
+pass_to_pass:
+  - "test_semver.py::test_equal"
+  - "test_semver.py::test_simple_greater"
+  - "test_semver.py::test_simple_less"
