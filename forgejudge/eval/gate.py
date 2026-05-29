@@ -136,9 +136,8 @@ def main() -> None:
     summary = os.getenv("GITHUB_STEP_SUMMARY")
     if summary:
         badge = "✅ PASS" if result.passed else "❌ FAIL"
-        Path(summary).open("a").write(
-            f"### Regression gate: {badge}\n\n```\n{result.detail}\n```\n"
-        )
+        with Path(summary).open("a") as fh:
+            fh.write(f"### Regression gate: {badge}\n\n```\n{result.detail}\n```\n")
     sys.exit(0 if result.passed else 1)
 
 
