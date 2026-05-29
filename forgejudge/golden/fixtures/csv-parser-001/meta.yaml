@@ -1,0 +1,19 @@
+instance_id: fixture-csv-parser-001
+family: make_ci_green
+problem_statement: |
+  A doubled double-quote inside a quoted field is lost instead of being kept as
+  one literal quote character. Parsing `"a""b",c` yields `['ab', 'c']`, dropping
+  the embedded quote, when it should yield `['a"b', 'c']`. Any field that uses
+  `""` to escape an inner quote comes back mangled.
+source_license: own
+created_at: "2026-05-29"
+env_image: "python:3.12-slim"
+fail_to_pass:
+  - "test_csv_parser_bug.py::test_escaped_quote_in_field"
+  - "test_csv_parser_bug.py::test_escaped_quote_with_inner_comma"
+pass_to_pass:
+  - "test_csv_parser.py::test_plain_fields"
+  - "test_csv_parser.py::test_empty_fields"
+  - "test_csv_parser.py::test_quoted_comma"
+  - "test_csv_parser.py::test_quoted_field_is_unwrapped"
+  - "test_csv_parser.py::test_single_field"

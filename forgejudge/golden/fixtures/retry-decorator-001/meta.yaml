@@ -1,0 +1,19 @@
+instance_id: fixture-retry-decorator-001
+family: make_ci_green
+problem_statement: |
+  `retry(attempts=N)` only ever calls the wrapped function N-1 times. A function
+  decorated with `attempts=3` that fails twice and would succeed on the third
+  call instead raises, because the final allowed attempt is never made. The last
+  attempt is always skipped.
+source_license: own
+created_at: "2026-05-29"
+env_image: "python:3.12-slim"
+fail_to_pass:
+  - "test_retry_bug.py::test_succeeds_on_final_attempt"
+  - "test_retry_bug.py::test_all_attempts_are_used"
+pass_to_pass:
+  - "test_retry.py::test_success_first_try"
+  - "test_retry.py::test_recovers_on_second_attempt"
+  - "test_retry.py::test_raises_when_all_attempts_fail"
+  - "test_retry.py::test_only_listed_exceptions_are_retried"
+  - "test_retry.py::test_invalid_attempts_rejected"
