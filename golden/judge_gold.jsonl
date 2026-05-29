@@ -1,0 +1,8 @@
+{"instance_id": "fixture-jsonpath-001", "patch_kind": "gold", "human_score": 5, "note": "PARTIAL SEED SET (MVP): human-labelled judge calibration rows. instance_id matches golden/dataset.jsonl; human_score is a discrete 1-5 rubric label used to compute Cohen's kappa vs the LLM judge. Expand as real human labels accrue."}
+{"instance_id": "fixture-semver-001", "patch_kind": "gold", "human_score": 4}
+{"instance_id": "fixture-lru-cache-001", "patch_kind": "gold", "human_score": 5}
+{"instance_id": "fixture-rpn-eval-001", "patch_kind": "gold", "human_score": 4}
+{"instance_id": "fixture-jsonpath-001", "patch_kind": "bad", "human_score": 1}
+{"instance_id": "fixture-semver-001", "patch_kind": "bad", "human_score": 2}
+{"instance_id": "fixture-lru-cache-001", "patch_kind": "bad", "human_score": 1}
+{"instance_id": "fixture-rpn-eval-001", "patch_kind": "bad", "human_score": 2}
