@@ -40,7 +40,8 @@ def test_run_sweep_returns_resolution_rate():
 @pytest.mark.slow
 @pytest.mark.db
 def test_run_sweep_persists_to_store():
-    dsn = os.getenv("DATABASE_URL") or os.getenv("FJ_LOCAL_DATABASE_URL")
+    # Tests TRUNCATE — prefer the disposable LOCAL db, never production Neon.
+    dsn = os.getenv("FJ_LOCAL_DATABASE_URL") or os.getenv("DATABASE_URL")
     if not dsn:
         pytest.skip("no DB dsn")
     from forgejudge.store.db import connect, init_db, leaderboard

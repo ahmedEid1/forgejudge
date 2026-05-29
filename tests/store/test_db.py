@@ -20,9 +20,10 @@ load_dotenv(REPO_ROOT / ".env")
 
 @pytest.fixture
 def conn():
-    dsn = os.getenv("DATABASE_URL") or os.getenv("FJ_LOCAL_DATABASE_URL")
+    # Tests TRUNCATE — prefer the disposable LOCAL db, never production Neon.
+    dsn = os.getenv("FJ_LOCAL_DATABASE_URL") or os.getenv("DATABASE_URL")
     if not dsn:
-        pytest.skip("no DATABASE_URL / FJ_LOCAL_DATABASE_URL")
+        pytest.skip("no FJ_LOCAL_DATABASE_URL / DATABASE_URL")
     try:
         c = connect(dsn)
     except Exception as exc:  # noqa: BLE001
