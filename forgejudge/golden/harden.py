@@ -31,6 +31,23 @@ _BIN = {ast.Add: ast.Sub, ast.Sub: ast.Add, ast.Mult: ast.FloorDiv,
 _BOOL = {ast.And: ast.Or, ast.Or: ast.And}
 
 
+def _node_in_scope(node: ast.AST, lines: set[int] | None) -> bool:
+    """Is ``node`` within the mutation scope ``lines``?
+
+    Scope by the node's *full* line span (``lineno..end_lineno``), not just its
+    start line: a multi-line expression (e.g. a ``Compare`` whose operator sits
+    on a continuation line) must still be mutated when the gold patch touched any
+    of its lines (Finding #21). ``lines is None`` means "mutate everything".
+    """
+    if lines is None:
+        return True
+    lineno = getattr(node, "lineno", None)
+    if lineno is None:
+        return False
+    end = getattr(node, "end_lineno", lineno) or lineno
+    return bool(lines & set(range(lineno, end + 1)))
+
+
 class _Counter(ast.NodeVisitor):
     """Count mutable nodes (optionally restricted to ``lines``) in traversal order."""
 
@@ -39,7 +56,7 @@ class _Counter(ast.NodeVisitor):
         self.lines = lines
 
     def _in_scope(self, node: ast.AST) -> bool:
-        return self.lines is None or getattr(node, "lineno", None) in self.lines
+        return _node_in_scope(node, self.lines)
 
     def visit_Compare(self, node: ast.Compare) -> None:
         if self._in_scope(node) and len(node.ops) == 1 and type(node.ops[0]) in _CMP:
@@ -72,7 +89,7 @@ class _Mutator(ast.NodeTransformer):
         self.applied = False
 
     def _in_scope(self, node: ast.AST) -> bool:
-        return self.lines is None or getattr(node, "lineno", None) in self.lines
+        return _node_in_scope(node, self.lines)
 
     def _hit(self) -> bool:
         self.i += 1
@@ -171,11 +188,22 @@ class HardenResult:
         return self.status != "weak"
 
 
-def changed_line_numbers(base_text: str, fix_text: str) -> set[int]:
-    """1-based line numbers in ``fix_text`` that differ from ``base_text``.
+def changed_line_numbers(base_text: str, fix_text: str) -> set[int] | None:
+    """1-based ``fix_text`` line numbers to scope mutation to, or ``None``.
 
     These are the lines the gold patch introduced/modified — the region a wrong
     fix would occupy, and therefore where mutation is most meaningful.
+
+    A pure *deletion* fix (the bug was extra/wrong code the fix removes) adds no
+    lines, so an added-line diff yields an empty set — which would silently scope
+    out every node and probe nothing, mis-reporting the task as 'inconclusive'
+    (Finding #5). When the texts differ but the diff produced no added/replaced
+    lines to scope to, we return ``None`` so the *whole* patched file is mutated
+    rather than nothing: the surviving logic the deletion now bears on can be
+    anywhere in the file, so whole-file mutation is the safe, honest choice.
+
+    The empty set is reserved for the genuinely-unchanged case (``base == fix``),
+    keeping "no change" distinguishable from "deletion gave no added lines".
     """
     base_lines = base_text.splitlines()
     fix_lines = fix_text.splitlines()
@@ -184,6 +212,10 @@ def changed_line_numbers(base_text: str, fix_text: str) -> set[int]:
     for tag, _i1, _i2, j1, j2 in sm.get_opcodes():
         if tag in ("replace", "insert"):
             changed.update(range(j1 + 1, j2 + 1))  # 1-based
+    if not changed and base_text != fix_text:
+        # Pure-deletion (or otherwise no added lines): mutate the whole patched
+        # file rather than silently probing nothing.
+        return None
     return changed
 
 

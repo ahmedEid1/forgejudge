@@ -35,8 +35,8 @@ class SweepResult:
 
 def forced_model_complete(model: str):
     """A complete_fn that forces every call onto ``model`` (model-swap)."""
-    def fn(messages, *, role, run_id):
-        return complete(messages, role=role, run_id=run_id, model=model)
+    def fn(messages, *, role, run_id, seed=None):
+        return complete(messages, role=role, run_id=run_id, model=model, seed=seed)
     return fn
 
 

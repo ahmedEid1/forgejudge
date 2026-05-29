@@ -13,4 +13,8 @@ RUN pip install --no-cache-dir uv \
 
 ENV PORT=7860
 EXPOSE 7860
-CMD ["uvicorn", "playground_api.app:app", "--host", "0.0.0.0", "--port", "7860"]
+# --proxy-headers + --forwarded-allow-ips='*' so uvicorn parses X-Forwarded-For
+# behind the Hugging Face reverse proxy; the per-IP rate limit then keys on the
+# real external client IP rather than one shared proxy IP.
+CMD ["uvicorn", "playground_api.app:app", "--host", "0.0.0.0", "--port", "7860", \
+     "--proxy-headers", "--forwarded-allow-ips", "*"]

@@ -64,16 +64,33 @@ class JudgeScore:
 
 
 def _parse_score(text: str) -> int:
-    """Extract the first standalone 1-5 digit from the model's reply.
+    """Extract the rubric 1-5 score from the model's reply.
 
-    Robust to formats like "Score: 4", "4/5", "I'd give this a 3.", etc. Falls
-    back to the minimum score if no 1-5 digit is present (a non-answer is, for a
-    quality judge, the worst case).
+    The system prompt instructs the model to emit ``Score: <N>`` on the first
+    line, so we anchor on that label first and only then fall back to looser
+    patterns. This avoids capturing an unrelated digit that happens to appear
+    *before* the actual score (e.g. "There are 3 issues but overall Score: 5"
+    must read 5, not 3).
+
+    Resolution order:
+      1. an explicit ``Score: <N>`` / ``score = N`` label (prefer the last such
+         match, since a model may restate it),
+      2. an ``N/5`` rating,
+      3. as a last resort, the first standalone 1-5 digit anywhere.
+
+    Falls back to the minimum score if no 1-5 digit is present at all (a
+    non-answer is, for a quality judge, the worst case).
     """
-    match = re.search(r"[1-5]", text)
-    if match is None:
+    labelled = re.findall(r"(?im)\bscore\b\s*[:=]?\s*([1-5])\b", text)
+    if labelled:
+        return int(labelled[-1])
+    out_of_five = re.search(r"([1-5])\s*/\s*5\b", text)
+    if out_of_five is not None:
+        return int(out_of_five.group(1))
+    loose = re.search(r"[1-5]", text)
+    if loose is None:
         return MIN_SCORE
-    return int(match.group(0))
+    return int(loose.group(0))
 
 
 def judge_patch(

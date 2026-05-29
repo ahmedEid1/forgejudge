@@ -11,10 +11,15 @@ import pytest
 import yaml
 
 from forgejudge.golden.build_dataset import build_task
-from forgejudge.golden.harden import generate_mutants, harden_check
+from forgejudge.golden.harden import (
+    changed_line_numbers,
+    generate_mutants,
+    harden_check,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 SEMVER_DIR = REPO_ROOT / "forgejudge" / "golden" / "fixtures" / "semver-001"
+JSONPATH_DIR = REPO_ROOT / "forgejudge" / "golden" / "fixtures" / "jsonpath-001"
 
 
 def test_generate_mutants_produces_variants():
@@ -22,6 +27,48 @@ def test_generate_mutants_produces_variants():
     mutants = generate_mutants(src)
     assert len(mutants) >= 2
     assert all(m != src for _, m in mutants)
+
+
+def test_deletion_only_fix_returns_none_scope():
+    """Finding #5: a pure-deletion gold fix changes the file but yields no added
+    lines. changed_line_numbers must signal 'mutate the whole file' (None), not an
+    empty set (which would silently scope out every node -> zero mutants)."""
+    base = "x = 1\ny = 2\nz = 3\n"
+    fix = "x = 1\nz = 3\n"  # the `y = 2` line was deleted
+    scope = changed_line_numbers(base, fix)
+    assert scope is None, (
+        "a deletion that changes the file must not yield an empty scope "
+        f"(got {scope!r}), or mutation probes nothing"
+    )
+    # And the deletion-scoped file still produces mutable nodes.
+    assert generate_mutants(fix, scope), "whole-file fallback must find mutants"
+
+
+def test_jsonpath_deletion_fixture_is_not_inconclusive():
+    """Finding #5 end-to-end: jsonpath-001's gold fix is a pure deletion. With the
+    bug, its surviving comparisons are never mutation-probed and the task is
+    wrongly reported 'inconclusive'. The whole-file fallback must generate mutants."""
+    base = (JSONPATH_DIR / "base" / "jsonpath.py").read_text()
+    fix = (JSONPATH_DIR / "fix" / "jsonpath.py").read_text()
+    assert base != fix
+    scope = changed_line_numbers(base, fix)
+    assert scope is None
+    assert generate_mutants(fix, scope), (
+        "deletion-only fix must still yield mutants over the surviving logic"
+    )
+
+
+def test_multiline_node_scoped_by_continuation_line():
+    """Finding #21: _in_scope must use the node's full line span, so an operator
+    reported on a continuation line (not the node's start line) is still mutated."""
+    src = "x = (\n    a\n    < b\n)\n"  # Compare lineno=2, end_lineno=3
+    # The `<` operator sits on line 3 (a continuation line); the gold diff may
+    # report only that line as changed.
+    assert generate_mutants(src, {3}), (
+        "a node whose changed line is a continuation line must still be mutated"
+    )
+    # Sanity: start-line scoping already worked.
+    assert generate_mutants(src, {2})
 
 
 @pytest.mark.slow

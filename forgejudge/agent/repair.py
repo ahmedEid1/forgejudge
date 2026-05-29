@@ -5,7 +5,11 @@ import re
 
 from forgejudge.types import Task
 
-_FENCE = re.compile(r"```(?:[\w.+-]*)\n(.*?)```", re.DOTALL)
+# Match a fenced block tolerantly: optional language tag, optional newline after
+# it (some models put code on the opener line), and an OPTIONAL closing fence so a
+# truncated (cut off near max_tokens) response is still usable. CRLF is normalised
+# before matching.  ``\Z`` lets the final block run to the end of the text.
+_FENCE = re.compile(r"```[\w.+-]*[ \t]*\n?(.*?)(?:```|\Z)", re.DOTALL)
 
 _SYSTEM = (
     "You are an autonomous software-engineering agent. A test is failing. Edit the "
@@ -16,10 +20,20 @@ _SYSTEM = (
 
 
 def extract_code(text: str) -> str | None:
-    """Return the last fenced code block, or the whole text if it parses as Python."""
-    blocks = _FENCE.findall(text)
+    """Extract the corrected source file from a model reply.
+
+    Models are asked for one ```python block but routinely append a short second
+    snippet (e.g. a usage example), so taking the LAST block silently overwrites
+    the file with a one-liner. Instead pick the block most likely to be the full
+    file: the longest block that parses as Python, falling back to the longest
+    block overall. The matcher also tolerates a missing closing fence (truncated
+    output), a fence with no newline after the language tag, and CRLF endings.
+    """
+    blocks = [b.strip("\r\n") for b in _FENCE.findall(text.replace("\r\n", "\n"))]
+    blocks = [b for b in blocks if b.strip()]
     if blocks:
-        code = blocks[-1]
+        parseable = [b for b in blocks if is_valid_python(b)]
+        code = max(parseable or blocks, key=len)
         return code if code.endswith("\n") else code + "\n"
     stripped = text.strip()
     if stripped and is_valid_python(stripped):

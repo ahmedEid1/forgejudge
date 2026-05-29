@@ -14,8 +14,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-from forgejudge.agent.critic import critique
-from forgejudge.agent.localize import localize
+from forgejudge.agent.critic import CritiqueResult, critique
+from forgejudge.agent.localize import _is_test_file, localize
 from forgejudge.agent.repair import build_edit_messages, extract_code, is_valid_python
 from forgejudge.golden.build_dataset import source_dir_for
 from forgejudge.golden.materialize import (
@@ -52,14 +52,16 @@ class SolveResult:
     resolved_in_loop: bool                  # the agent's own validation passed
     reverted_edits: int = 0                 # edits the syntax gate rejected
     critic_rejections: int = 0              # edits the critic rejected before testing
+    no_code_responses: int = 0              # steps where the model emitted no usable code block
     trace_url: str = ""                     # deep link into the run's Langfuse trace
     tokens_in: int = 0
     tokens_out: int = 0
 
 
 def _is_test_path(rel: str) -> bool:
-    name = Path(rel).name
-    return name.startswith("test_") or name.endswith("_test.py") or "test" in Path(rel).parts[:-1]
+    # Reuse the localizer's predicate so the fallback target and the localizer
+    # never disagree about which files are tests (vs. editable source).
+    return _is_test_file(Path(rel))
 
 
 def _fallback_target(work: Path) -> str | None:
@@ -68,6 +70,11 @@ def _fallback_target(work: Path) -> str | None:
         if ".git" not in rel and not _is_test_path(rel):
             return rel
     return None
+
+
+def _no_regression(status: dict[str, bool]) -> bool:
+    """No PASS_TO_PASS test regressed: vacuously true when there are none to run."""
+    return all(status.values())
 
 
 def _read_failing_tests(work: Path, task: Task) -> str:
@@ -121,8 +128,26 @@ def solve(
     tok_out = 0
     reverted = 0
     critic_rejections = 0
+    no_code = 0
     status: str = "budget_exceeded"
     patch = ""
+
+    def _critique(code: str) -> CritiqueResult:
+        """Run the critic, folding its (otherwise-uncounted) spend into the totals."""
+        nonlocal cost, tok_in, tok_out
+        captured: list[Completion] = []
+
+        def _tap(messages, **kwargs):
+            comp = critic_fn(messages, **kwargs)
+            captured.append(comp)
+            return comp
+
+        verdict = critique(task, code, failing_tests, complete_fn=_tap, run_id=run_id)
+        for comp in captured:
+            cost += comp.cost_usd
+            tok_in += comp.tokens_in
+            tok_out += comp.tokens_out
+        return verdict
     with tracer.start_as_current_span("invoke_agent") as root:
         root.set_attribute(GEN_AI_OPERATION, "invoke_agent")
         root.set_attribute(GEN_AI_CONVERSATION_ID, run_id)
@@ -145,7 +170,7 @@ def solve(
             if target is None:
                 record_evaluation(root, name="resolved", value=0.0, label="fail",
                                   explanation="no source file to edit")
-                return SolveResult("", "error", 0, 0.0, False, 0, 0, trace_url)
+                return SolveResult("", "error", 0, 0.0, False, 0, 0, 0, trace_url)
 
             failing_tests = _read_failing_tests(work, task) if show_failing_test else ""
             feedback = ""
@@ -156,7 +181,7 @@ def solve(
                 messages = build_edit_messages(task, target, target_src, failing_tests, feedback)
                 with tracer.start_as_current_span("chat") as csp:
                     csp.set_attribute(GEN_AI_OPERATION, "chat")
-                    comp = complete_fn(messages, role="edit", run_id=run_id)
+                    comp = complete_fn(messages, role="edit", run_id=run_id, seed=seed)
                     set_model_usage(csp, model=comp.model, tokens_in=comp.tokens_in,
                                     tokens_out=comp.tokens_out, cost=comp.cost_usd)
                 steps += 1
@@ -166,6 +191,7 @@ def solve(
 
                 code = extract_code(comp.text)
                 if code is None:
+                    no_code += 1
                     feedback = f"Return the complete contents of {target} in one ```python block."
                     continue
                 if not is_valid_python(code):
@@ -178,8 +204,7 @@ def solve(
                     with tracer.start_as_current_span("chat") as ksp:
                         ksp.set_attribute(GEN_AI_OPERATION, "chat")
                         ksp.set_attribute("forgejudge.role", "critic")
-                        verdict = critique(task, code, failing_tests,
-                                           complete_fn=critic_fn, run_id=run_id)
+                        verdict = _critique(code)
                     if not verdict.approved:
                         critic_rejections += 1
                         feedback = f"A reviewer rejected the edit: {verdict.reason}"
@@ -201,7 +226,10 @@ def solve(
                 else:
                     # Hidden test: accept the first issue-guided edit that keeps the
                     # existing tests green (no regression); the hidden oracle decides.
-                    if _all_pass(p2p):
+                    # A task whose buggy base has no PASS_TO_PASS tests has nothing to
+                    # regress, so "no regression" is vacuously satisfied — otherwise the
+                    # success gate would be structurally unreachable for such tasks.
+                    if _no_regression(p2p):
                         status = "ok"
                         break
                     failed = [n for n, ok in p2p.items() if not ok]
@@ -218,7 +246,7 @@ def solve(
         except Exception:  # noqa: BLE001 - any failure is reported as an errored run
             root.set_attribute("forgejudge.error", True)
             return SolveResult("", "error", steps, cost, False, reverted, critic_rejections,
-                               trace_url, tok_in, tok_out)
+                               no_code, trace_url, tok_in, tok_out)
         finally:
             shutil.rmtree(work, ignore_errors=True)
 
@@ -226,4 +254,4 @@ def solve(
     # resolved_in_loop is only meaningful when the failing test was shown.
     resolved_in_loop = show_failing_test and status == "ok"
     return SolveResult(patch, status, steps, cost, resolved_in_loop, reverted, critic_rejections,
-                       trace_url, tok_in, tok_out)
+                       no_code, trace_url, tok_in, tok_out)

@@ -13,6 +13,7 @@ import json
 import shutil
 import tempfile
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 
 import yaml
@@ -33,6 +34,23 @@ FIXTURES_ROOT = REPO_ROOT / "forgejudge" / "golden" / "fixtures"
 OWNED_ROOT = REPO_ROOT / "golden" / "owned"
 DATASET_PATH = REPO_ROOT / "golden" / "dataset.jsonl"
 SOLUTIONS_PATH = REPO_ROOT / "golden" / "solutions.jsonl"
+
+# Contamination control: every task's ``created_at`` must postdate the model's
+# training cutoff so it cannot have been memorized (Finding #34). Pinned once
+# here; the model knowledge cutoff is 2026-01, so any task dated on/before this
+# is rejected at build time.
+MODEL_CUTOFF = date(2026, 1, 31)
+
+# meta.yaml keys build_task reads via subscript (no .get default) and therefore
+# requires to be present (Finding #33).
+_REQUIRED_META_KEYS = (
+    "instance_id",
+    "family",
+    "problem_statement",
+    "fail_to_pass",
+    "pass_to_pass",
+    "created_at",
+)
 
 
 @dataclass
@@ -63,9 +81,43 @@ def _read_meta(task_dir: Path) -> dict:
     return meta
 
 
+def _validate_meta(task_dir: Path, meta: dict) -> None:
+    """Raise a descriptive ``ValueError`` for a malformed ``meta.yaml``.
+
+    Names the offending ``task_dir`` and the missing/invalid key rather than
+    surfacing a bare ``KeyError``/``AttributeError`` deep in build_task
+    (Finding #33), and enforces the post-cutoff ``created_at`` invariant
+    (Finding #34).
+    """
+    missing = [k for k in _REQUIRED_META_KEYS if k not in meta]
+    if missing:
+        raise ValueError(f"{task_dir}/meta.yaml missing required key(s): {missing}")
+
+    if not isinstance(meta["problem_statement"], str):
+        raise ValueError(
+            f"{task_dir}/meta.yaml: problem_statement must be a string, got "
+            f"{type(meta['problem_statement']).__name__}"
+        )
+
+    try:
+        created = date.fromisoformat(str(meta["created_at"]))
+    except ValueError as exc:
+        raise ValueError(
+            f"{task_dir}/meta.yaml: created_at {meta['created_at']!r} is not an "
+            f"ISO date (YYYY-MM-DD): {exc}"
+        ) from exc
+    if created <= MODEL_CUTOFF:
+        raise ValueError(
+            f"{task_dir}/meta.yaml: created_at {created.isoformat()} is on/before "
+            f"the model cutoff {MODEL_CUTOFF.isoformat()}; tasks must postdate it "
+            f"(contamination control)"
+        )
+
+
 def build_task(task_dir: Path) -> tuple[Task, str]:
     """Derive the (Task, gold_patch) for a fixture/owned directory."""
     meta = _read_meta(task_dir)
+    _validate_meta(task_dir, meta)
     name = task_dir.name
     tmp = Path(tempfile.mkdtemp(prefix=f"fjbuild-{name}-"))
     try:

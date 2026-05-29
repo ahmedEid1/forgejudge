@@ -32,11 +32,52 @@ def test_tools_are_registered_with_valid_schemas():
     anyio.run(go)
 
 
+def _pyproject_version() -> str:
+    import tomllib
+
+    data = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
+    return data["project"]["version"]
+
+
 def test_server_json_manifest_is_valid():
     manifest = json.loads((REPO_ROOT / "forgejudge" / "mcp" / "server.json").read_text())
     assert manifest["name"].startswith("io.github.")
     assert manifest["version"]
     assert manifest["repository"]["url"].endswith("/forgejudge")
+
+
+def test_manifest_package_is_internally_consistent():
+    """#24: the packages[] block must be usable — its version must match the
+    published package (pyproject), and its declared transport must match the
+    only runnable entrypoint (server.py main())."""
+    import inspect
+
+    from forgejudge.mcp import server as srv
+
+    manifest = json.loads((REPO_ROOT / "forgejudge" / "mcp" / "server.json").read_text())
+    pkgs = manifest["packages"]
+    assert pkgs, "manifest must declare at least one package"
+    pkg = pkgs[0]
+
+    # (3) version must match the real package version, not a stale 0.0.1.
+    pyver = _pyproject_version()
+    assert pkg["version"] == pyver == manifest["version"], (
+        f"package version {pkg['version']!r} != pyproject {pyver!r}"
+    )
+
+    # (2) declared transport must match what main() actually runs.
+    declared = pkg["transport"]["type"]
+    main_src = inspect.getsource(srv.main)
+    assert f'transport="{declared}"' in main_src, (
+        f"manifest declares transport {declared!r} but main() does not run it"
+    )
+
+    # (1) a stdio package with no console-script must declare a concrete way to
+    # launch it (runtimeHint + arguments), otherwise a client has nothing to exec.
+    if declared == "stdio":
+        assert pkg.get("runtimeHint"), "stdio package needs a runtimeHint to launch"
+        args = pkg.get("runtimeArguments") or pkg.get("packageArguments")
+        assert args, "stdio package needs run arguments (no console-script exists)"
 
 
 def test_solve_issue_impl_grades_a_gold_patch():

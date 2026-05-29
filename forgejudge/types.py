@@ -26,6 +26,7 @@ class Task(BaseModel):
     language: Literal["python"] = "python"
     source_license: str              # "MIT" | "Apache-2.0" | "own"
     created_at: str                  # ISO date; must be post model-cutoff
+    #   (enforced at build time: build_dataset._validate_meta vs MODEL_CUTOFF)
 
 
 class GradeResult(BaseModel):

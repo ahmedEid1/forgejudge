@@ -12,7 +12,14 @@
     {
       "registryType": "pypi",
       "identifier": "forgejudge",
-      "version": "0.0.1",
+      "version": "0.1.0",
+      "runtimeHint": "uvx",
+      "runtimeArguments": [
+        { "type": "named", "name": "--from", "value": "forgejudge==0.1.0" },
+        { "type": "positional", "value": "python" },
+        { "type": "positional", "value": "-m" },
+        { "type": "positional", "value": "forgejudge.mcp.server" }
+      ],
       "transport": { "type": "stdio" }
     }
   ]

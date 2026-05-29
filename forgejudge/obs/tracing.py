@@ -5,16 +5,24 @@ Emits an ``invoke_agent`` root span with child ``retrieval`` / ``chat`` /
 model spans, and a ``gen_ai.evaluation.result`` event carrying the pass/fail
 verdict. Dual export: Langfuse Cloud (curated showcase) via OTLP + an optional
 self-hosted Phoenix collector (bulk). Untraced runs are cheap no-ops.
+
+Note: ``gen_ai.usage.cost`` is *not* an OTel GenAI semantic convention (the
+convention defines token counts but no cost attribute), so per-run USD cost is
+recorded under the vendor-namespaced ``forgejudge.usage.cost_usd`` key to avoid
+squatting on the ``gen_ai.*`` namespace.
 """
 
 import base64
 import os
-from functools import lru_cache
 
 from opentelemetry import trace
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
+from opentelemetry.sdk.trace.export import (
+    BatchSpanProcessor,
+    SimpleSpanProcessor,
+    SpanExporter,
+)
 from opentelemetry.trace import Span
 
 TRACER_NAME = "forgejudge"
@@ -26,7 +34,8 @@ GEN_AI_CONVERSATION_ID = "gen_ai.conversation.id"
 GEN_AI_REQUEST_MODEL = "gen_ai.request.model"
 GEN_AI_USAGE_IN = "gen_ai.usage.input_tokens"
 GEN_AI_USAGE_OUT = "gen_ai.usage.output_tokens"
-GEN_AI_USAGE_COST = "gen_ai.usage.cost"
+# ForgeJudge extension (NOT an OTel GenAI convention): per-call USD cost.
+GEN_AI_USAGE_COST = "forgejudge.usage.cost_usd"
 GEN_AI_TOOL_NAME = "gen_ai.tool.name"
 
 def get_tracer() -> trace.Tracer:
@@ -74,16 +83,35 @@ def setup_tracing(
         provider = TracerProvider(resource=Resource.create({"service.name": service_name}))
         trace.set_tracer_provider(provider)
 
-    exporters = [exporter] if exporter is not None else [
-        e for e in (_langfuse_exporter(), _phoenix_exporter()) if e is not None
-    ]
-    for exp in exporters:
-        provider.add_span_processor(SimpleSpanProcessor(exp))
+    if exporter is not None:
+        # An explicit exporter (e.g. the in-memory test exporter) is synchronous
+        # by design, so export inline for deterministic, immediate capture.
+        provider.add_span_processor(SimpleSpanProcessor(exporter))
+        return provider
+
+    # Network OTLP exporters (Langfuse/Phoenix) must NOT export inline: a
+    # SimpleSpanProcessor would block the agent hot path on a per-span HTTP
+    # POST. Batch off-thread instead so a slow endpoint can't stall the run.
+    for exp in (_langfuse_exporter(), _phoenix_exporter()):
+        if exp is not None:
+            provider.add_span_processor(BatchSpanProcessor(exp))
     return provider
 
 
-@lru_cache(maxsize=1)
-def _langfuse_project_id() -> str | None:
+# Memoize the resolved project id ONLY on success, keyed by the credential set.
+# Caching a None/error result (as a bare @lru_cache would) freezes the wrong,
+# project-less fallback URL for the whole process even after keys/connectivity
+# recover; so failures are never cached and the next call retries.
+_PROJECT_ID_CACHE: dict[tuple[str, str], str] = {}
+
+
+def _reset_project_id_cache() -> None:
+    """Clear the project-id memo (used by tests across env changes)."""
+    _PROJECT_ID_CACHE.clear()
+
+
+def _fetch_langfuse_project_id() -> str | None:
+    """Resolve the Langfuse project id from the API (no caching)."""
     pub = os.getenv("LANGFUSE_PUBLIC_KEY")
     sec = os.getenv("LANGFUSE_SECRET_KEY")
     if not (pub and sec):
@@ -106,10 +134,36 @@ def _langfuse_project_id() -> str | None:
         return None
 
 
+def _langfuse_project_id() -> str | None:
+    pub = os.getenv("LANGFUSE_PUBLIC_KEY")
+    sec = os.getenv("LANGFUSE_SECRET_KEY")
+    if not (pub and sec):
+        return None
+    key = (pub, sec)
+    cached = _PROJECT_ID_CACHE.get(key)
+    if cached is not None:
+        return cached
+    project_id = _fetch_langfuse_project_id()
+    if project_id is not None:
+        _PROJECT_ID_CACHE[key] = project_id
+    return project_id
+
+
 def trace_url_for(span: Span) -> str:
-    """Best-effort Langfuse deep link for ``span``'s trace; "" if untraced."""
+    """Best-effort Langfuse deep link for ``span``'s trace.
+
+    Returns "" when the span is untraced (no-op span, ``trace_id == 0``) *or*
+    when Langfuse is not the configured exporter. The latter guard matters
+    because a real TracerProvider gives every span a non-zero ``trace_id`` even
+    on Phoenix-only / local / CI / in-memory-test runs; without it we would
+    advertise a ``cloud.langfuse.com`` deep link to a trace that was never sent
+    there (a guaranteed dead 404 link on a public showcase record).
+    """
     ctx = span.get_span_context()
     if not ctx or not ctx.trace_id:
+        return ""
+    # Only emit a Langfuse URL when Langfuse export is actually configured.
+    if not (os.getenv("LANGFUSE_PUBLIC_KEY") and os.getenv("LANGFUSE_SECRET_KEY")):
         return ""
     trace_id = format(ctx.trace_id, "032x")
     host = os.getenv("LANGFUSE_HOST", _DEFAULT_LANGFUSE_HOST).rstrip("/")
@@ -138,4 +192,8 @@ def set_model_usage(span: Span, *, model: str, tokens_in: int, tokens_out: int, 
     span.set_attribute(GEN_AI_REQUEST_MODEL, model)
     span.set_attribute(GEN_AI_USAGE_IN, tokens_in)
     span.set_attribute(GEN_AI_USAGE_OUT, tokens_out)
-    span.set_attribute(GEN_AI_USAGE_COST, cost)
+    # Cost is a ForgeJudge extension, not an OTel GenAI attribute. Only record it
+    # when it is actually known: a literal 0.0 (free models, fixtures) is
+    # indistinguishable from "unknown" and would skew cost dashboards.
+    if cost:
+        span.set_attribute(GEN_AI_USAGE_COST, cost)

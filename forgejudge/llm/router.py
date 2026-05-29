@@ -12,6 +12,7 @@ spend can be capped/inspected via :func:`run_cost` (and cleared via :func:`reset
 from __future__ import annotations
 
 import os
+import time
 from pathlib import Path
 from typing import Literal
 
@@ -28,6 +29,50 @@ _DEFAULT_MODELS_YAML = Path(__file__).parent / "models.yaml"
 
 # run_id -> accumulated cost in USD across every complete() call for that run.
 _LEDGER: dict[str, float] = {}
+
+# Rate-limit (429) handling: the free-tier chains in models.yaml are routinely
+# throttled, so a 429 is transient — retry the SAME model with bounded
+# exponential backoff before advancing the fallback chain. Hard errors
+# (auth/model/provider) still advance immediately.
+_MAX_RATE_LIMIT_ATTEMPTS = 3  # total tries of one model on repeated 429s
+_BACKOFF_BASE_SECONDS = 1.0  # exponential base: 1s, 2s, 4s, ...
+_BACKOFF_MAX_SECONDS = 30.0  # cap any single backoff (incl. Retry-After)
+
+
+def _sleep(seconds: float) -> None:
+    """Indirection over ``time.sleep`` so tests can stub backoff deterministically."""
+    time.sleep(seconds)
+
+
+def _retry_after_seconds(exc: Exception) -> float | None:
+    """Parse a ``Retry-After`` header (delay-seconds form) off a rate-limit error.
+
+    Returns the delay in seconds when the provider sent one, else ``None``. Any
+    malformed/absent header yields ``None`` so we fall back to exponential backoff.
+    """
+    response = getattr(exc, "response", None)
+    headers = getattr(response, "headers", None)
+    if not headers:
+        return None
+    raw = headers.get("Retry-After") or headers.get("retry-after")
+    if raw is None:
+        return None
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return None  # HTTP-date form is unsupported here; use exponential backoff.
+
+
+def _backoff_seconds(exc: Exception, attempt: int) -> float:
+    """How long to wait before the next retry: honor Retry-After, else exponential.
+
+    ``attempt`` is 1-based (the attempt that just failed). The result is capped at
+    :data:`_BACKOFF_MAX_SECONDS`.
+    """
+    retry_after = _retry_after_seconds(exc)
+    if retry_after is not None:
+        return min(max(retry_after, 0.0), _BACKOFF_MAX_SECONDS)
+    return min(_BACKOFF_BASE_SECONDS * (2 ** (attempt - 1)), _BACKOFF_MAX_SECONDS)
 
 
 class Completion(BaseModel):
@@ -68,7 +113,12 @@ def _chain_for(role: Role) -> list[str]:
 
 
 def complete(
-    messages: list[dict], *, role: Role, run_id: str, model: str | None = None
+    messages: list[dict],
+    *,
+    role: Role,
+    run_id: str,
+    model: str | None = None,
+    seed: int | None = None,
 ) -> Completion:
     """Complete ``messages`` for ``role``, walking that role's fallback chain.
 
@@ -78,14 +128,32 @@ def complete(
 
     ``model`` overrides the chain with a single model (used by the leaderboard's
     model-swap comparison — same harness, different model).
+
+    ``seed`` is forwarded to the provider so multi-seed sweeps actually perturb
+    sampling (providers that honor ``seed`` give reproducible-but-distinct draws).
+
+    Rate limits (litellm ``RateLimitError`` / 429) are treated as transient: the
+    *same* model is retried with bounded exponential backoff (honoring
+    ``Retry-After`` when present) up to :data:`_MAX_RATE_LIMIT_ATTEMPTS` before the
+    chain advances. Genuine provider/auth/model errors advance immediately.
     """
     chain = [model] if model else _chain_for(role)
     errors: list[str] = []
     for model in chain:
-        try:
-            resp = litellm.completion(model=model, messages=messages)
-        except Exception as exc:  # noqa: BLE001 — any provider error means "try next".
-            errors.append(f"{model}: {exc!r}")
+        resp = None
+        for attempt in range(1, _MAX_RATE_LIMIT_ATTEMPTS + 1):
+            try:
+                resp = litellm.completion(model=model, messages=messages, seed=seed)
+                break
+            except litellm.RateLimitError as exc:
+                if attempt < _MAX_RATE_LIMIT_ATTEMPTS:
+                    _sleep(_backoff_seconds(exc, attempt))
+                    continue
+                errors.append(f"{model}: rate-limited after {attempt} attempts: {exc!r}")
+            except Exception as exc:  # noqa: BLE001 — hard error: try next model now.
+                errors.append(f"{model}: {exc!r}")
+                break
+        if resp is None:
             continue
 
         text = resp.choices[0].message.content or ""

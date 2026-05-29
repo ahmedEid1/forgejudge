@@ -57,6 +57,23 @@ def test_judge_parses_score_in_varied_formats():
         assert res.score == expected
 
 
+def test_judge_anchors_on_score_label_ignoring_earlier_digits():
+    """Finding #19: a non-score digit before 'Score:' must not corrupt parsing.
+
+    The system prompt asks for 'Score: <N>' on the first line; the parser must
+    anchor on that label, not grab the first 1-5 digit anywhere in the reply.
+    """
+    cases = [
+        ("There are 3 issues but overall Score: 5", 5),
+        ("In 2 ways this is good.\nScore: 5", 5),
+        ("Score: 4\nThere were 2 minor nits.", 4),
+        ("score = 1\nbad: regressed 5 tests", 1),
+    ]
+    for text, expected in cases:
+        res = judge_patch(TASKS[SEMVER], PATCH, complete_fn=_const(text), run_id="ja")
+        assert res.score == expected, f"{text!r} -> {res.score}, expected {expected}"
+
+
 def test_empty_patch_scores_one_without_calling_llm():
     def boom(messages, *, role, run_id):
         raise AssertionError("LLM must not be called for an empty patch")

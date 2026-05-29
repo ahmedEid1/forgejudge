@@ -1,4 +1,8 @@
-"""ForgeJudge MCP server (FastMCP, streamable-HTTP).
+"""ForgeJudge MCP server (FastMCP, stdio).
+
+Launched locally over stdio (``python -m forgejudge.mcp.server``); this is the
+transport the published ``server.json`` manifest advertises so an MCP client can
+spawn the server directly from the pypi package.
 
 Exposes the agent + leaderboard over the Model Context Protocol:
 
@@ -84,7 +88,9 @@ def solve_issue(task_id: str, budget_usd: float = 0.10, seed: int = 0) -> dict:
 
 
 def main() -> None:
-    mcp.run(transport="http", host="0.0.0.0", port=8000)
+    # stdio: an MCP client launches this module as a subprocess and speaks the
+    # protocol over stdin/stdout. Matches the transport declared in server.json.
+    mcp.run(transport="stdio")
 
 
 if __name__ == "__main__":

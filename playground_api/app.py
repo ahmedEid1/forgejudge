@@ -23,6 +23,7 @@ import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
+from starlette.concurrency import run_in_threadpool
 
 from forgejudge.golden.loader import load_tasks
 from forgejudge.harness.grade import grade
@@ -38,6 +39,23 @@ SOLVE_BUDGET_USD = float(os.getenv("SOLVE_BUDGET_USD", "0.05"))
 
 def _load_allowlist() -> dict:
     return {t.instance_id: t for t in load_tasks(DATASET)}
+
+
+def _client_ip(request: Request) -> str:
+    """Real client IP for rate-limit/Turnstile keying.
+
+    On Hugging Face Spaces the app sits behind a reverse proxy, so the external
+    client IP arrives in ``X-Forwarded-For`` (left-most entry) — ``request.client``
+    is only the proxy. We trust the left-most XFF entry (the Dockerfile launches
+    uvicorn with ``--proxy-headers --forwarded-allow-ips='*'`` so the hop is
+    sanctioned), falling back to the socket peer when no header is present.
+    """
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        first = xff.split(",", 1)[0].strip()
+        if first:
+            return first
+    return request.client.host if request.client else "?"
 
 
 def create_app(*, solve_fn=None, tasks=None, turnstile_verify=None, require_turnstile=None,
@@ -90,18 +108,20 @@ def create_app(*, solve_fn=None, tasks=None, turnstile_verify=None, require_turn
 
     @app.post("/api/solve")
     async def solve_issue(req: SolveReq, request: Request):
-        # 1. Turnstile (only when configured).
-        if app.state.require_turnstile:
-            ok = await app.state.turnstile_verify(req.turnstile_token, request.client.host if request.client else "")
-            if not ok:
-                return JSONResponse({"error": "turnstile verification failed"}, status_code=403)
-        # 2. Pre-vetted task only (no free-form prompt to the model).
+        ip = _client_ip(request)
+        # Cheap, local guards FIRST so unauthenticated callers cannot drive the
+        # expensive outbound Turnstile siteverify (a free amplification vector).
+        # 1. Pre-vetted task only (no free-form prompt to the model).
         if req.task_id not in app.state.tasks:
             return JSONResponse({"error": "unknown task_id (pre-vetted tasks only)"}, status_code=400)
-        # 3. Per-IP rate limit.
-        ip = request.client.host if request.client else "?"
+        # 2. Per-IP rate limit — also caps how many Turnstile calls a client triggers.
         if not _rate_ok(ip):
             return JSONResponse({"error": "rate limit exceeded"}, status_code=429)
+        # 3. Turnstile (only when configured) — gated by the cheap checks above.
+        if app.state.require_turnstile:
+            ok = await app.state.turnstile_verify(req.turnstile_token, ip)
+            if not ok:
+                return JSONResponse({"error": "turnstile verification failed"}, status_code=403)
         # 4. Fail-closed daily token budget.
         _roll_day()
         if app.state.tokens_today >= app.state.daily_budget:
@@ -112,7 +132,10 @@ def create_app(*, solve_fn=None, tasks=None, turnstile_verify=None, require_turn
         solve_fn = app.state.solve_fn
         if solve_fn is None:
             from forgejudge.agent.solver import solve as solve_fn
-        res = solve_fn(task, run_id=f"hf-{req.task_id}", budget_usd=SOLVE_BUDGET_USD, seed=0)
+        # solve() is a blocking, long-running sync call (git/pytest subprocesses,
+        # LLM calls). Offload it so one slow solve cannot freeze the event loop.
+        res = await run_in_threadpool(solve_fn, task, run_id=f"hf-{req.task_id}",
+                                      budget_usd=SOLVE_BUDGET_USD, seed=0)
         app.state.tokens_today += (res.tokens_in + res.tokens_out)
         g = grade(task, res.patch)
         return {

@@ -109,36 +109,82 @@ def get_run(conn: psycopg.Connection, run_id: str) -> RunRecord | None:
 
 
 def leaderboard(conn: psycopg.Connection) -> list[dict]:
-    """Aggregate per model: pass@1 (per-run resolve rate), pass@3 (any seed per
-    task resolves), and mean cost/tokens/latency. Best pass@1 first."""
+    """Aggregate per model over the FULL task universe.
+
+    Returns, per (model, scaffold_version):
+
+    * ``pass_at_1``  — expected single-sample resolve rate, averaged over every
+      task in the universe (missing/skipped tasks count as 0), not just the runs
+      that happened to execute (finding #38: denominator is the full golden set).
+    * ``pass_at_k``  — fraction of universe tasks where *any* seed resolved.
+      ``k`` varies with the number of seeds actually swept, so the metric is
+      named generically (finding #39); ``n_seeds`` reports the real k so the UI
+      can label it honestly (e.g. "pass@3" only when 3 seeds were run).
+    * ``mean_cost_usd`` / ``mean_tokens`` / ``mean_wall_s`` — per-TASK, not
+      per-run: cost/tokens/latency are summed within a task then averaged across
+      the universe (finding #28: matches the dashboard's "$/task" labels).
+
+    The universe is the set of all distinct ``task_id``s present in ``runs`` (the
+    full golden set a complete sweep covers), so a model that skipped a task is
+    penalised relative to one that completed it. Best pass@1 first.
+    """
     rows = conn.execute(
         """
-        WITH per_task AS (
+        WITH universe AS (
+            -- the full task set a complete sweep covers
+            SELECT DISTINCT task_id FROM runs
+        ),
+        models AS (
+            SELECT DISTINCT model, scaffold_version FROM runs
+        ),
+        grid AS (
+            -- every (model, scaffold) crossed with every task in the universe
+            SELECT m.model, m.scaffold_version, u.task_id
+            FROM models m CROSS JOIN universe u
+        ),
+        per_task AS (
+            -- per-task rollup for the (model, task) pairs that actually ran
             SELECT model, scaffold_version, task_id,
-                   bool_or(resolved) AS any_resolved
+                   bool_or(resolved) AS any_resolved,
+                   AVG(resolved::int)::float AS task_pass_rate,
+                   SUM(cost_usd)::float AS task_cost,
+                   SUM(tokens_in + tokens_out)::float AS task_tokens,
+                   SUM(wall_clock_s)::float AS task_wall
             FROM runs GROUP BY model, scaffold_version, task_id
         ),
-        agg AS (
+        per_task_full AS (
+            -- left-join the grid so missing tasks COALESCE to 0 (not resolved)
+            SELECT g.model, g.scaffold_version, g.task_id,
+                   COALESCE(p.any_resolved, false) AS any_resolved,
+                   COALESCE(p.task_pass_rate, 0.0) AS task_pass_rate,
+                   COALESCE(p.task_cost, 0.0) AS task_cost,
+                   COALESCE(p.task_tokens, 0.0) AS task_tokens,
+                   COALESCE(p.task_wall, 0.0) AS task_wall
+            FROM grid g
+            LEFT JOIN per_task p USING (model, scaffold_version, task_id)
+        ),
+        runagg AS (
             SELECT model, scaffold_version,
                    COUNT(*) AS n_runs,
-                   AVG(resolved::int)::float AS pass_at_1,
-                   AVG(cost_usd)::float AS mean_cost_usd,
-                   AVG(tokens_in + tokens_out)::float AS mean_tokens,
-                   AVG(wall_clock_s)::float AS mean_wall_s
+                   COUNT(DISTINCT seed) AS n_seeds
             FROM runs GROUP BY model, scaffold_version
         ),
         taskagg AS (
             SELECT model, scaffold_version,
                    COUNT(*) AS n_tasks,
-                   AVG(any_resolved::int)::float AS pass_at_3
-            FROM per_task GROUP BY model, scaffold_version
+                   AVG(task_pass_rate)::float AS pass_at_1,
+                   AVG(any_resolved::int)::float AS pass_at_k,
+                   AVG(task_cost)::float AS mean_cost_usd,
+                   AVG(task_tokens)::float AS mean_tokens,
+                   AVG(task_wall)::float AS mean_wall_s
+            FROM per_task_full GROUP BY model, scaffold_version
         )
-        SELECT a.model, a.scaffold_version, t.n_tasks, a.n_runs,
-               a.pass_at_1, t.pass_at_3, a.mean_cost_usd, a.mean_tokens, a.mean_wall_s
-        FROM agg a JOIN taskagg t USING (model, scaffold_version)
-        ORDER BY a.pass_at_1 DESC, a.mean_cost_usd ASC
+        SELECT t.model, t.scaffold_version, t.n_tasks, r.n_runs, r.n_seeds,
+               t.pass_at_1, t.pass_at_k, t.mean_cost_usd, t.mean_tokens, t.mean_wall_s
+        FROM taskagg t JOIN runagg r USING (model, scaffold_version)
+        ORDER BY t.pass_at_1 DESC, t.mean_cost_usd ASC
         """
     ).fetchall()
-    cols = ["model", "scaffold_version", "n_tasks", "n_runs", "pass_at_1", "pass_at_3",
-            "mean_cost_usd", "mean_tokens", "mean_wall_s"]
+    cols = ["model", "scaffold_version", "n_tasks", "n_runs", "n_seeds", "pass_at_1",
+            "pass_at_k", "mean_cost_usd", "mean_tokens", "mean_wall_s"]
     return [dict(zip(cols, r, strict=True)) for r in rows]

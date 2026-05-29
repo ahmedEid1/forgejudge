@@ -20,7 +20,13 @@ def load_tasks(path: str | Path) -> list[Task]:
     """
     path = Path(path)
     tasks: list[Task] = []
-    for lineno, raw in enumerate(path.read_text().splitlines(), start=1):
+    # Split ONLY on the literal record separator the writer used ('\n'); never on
+    # str.splitlines()'s full Unicode line-boundary set (U+2028/U+2029, \x0b,
+    # \x0c, ...), which are legal *inside* a JSON string and are emitted raw by
+    # model_dump_json — so splitlines() would tear a single record in two
+    # (Finding #20). Strip a trailing '\r' per line for CRLF tolerance.
+    for lineno, raw in enumerate(path.read_text().split("\n"), start=1):
+        raw = raw.rstrip("\r")
         if not raw.strip():
             continue
         try:

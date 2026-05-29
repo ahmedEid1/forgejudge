@@ -7,6 +7,7 @@ The Phase 5 sweep reuses :func:`grade_tasks` with the agent's patches.
 
 import argparse
 import json
+import sys
 import time
 from datetime import UTC, datetime
 from pathlib import Path
@@ -57,12 +58,23 @@ def grade_tasks(
 
 def aggregate(artifacts_dir: str | Path, out: str | Path) -> tuple[int, int]:
     """Concatenate all shard ``*.jsonl`` into ``out``; return (resolved, total)."""
+    resolved, total, _ = _aggregate(artifacts_dir, out)
+    return resolved, total
+
+
+def _aggregate(artifacts_dir: str | Path, out: str | Path) -> tuple[int, int, bool]:
+    """Like :func:`aggregate` but also report whether any record is a gold run.
+
+    The standalone eval.yml self-test feeds ``--patch-source gold`` shards in here;
+    a gold run where ``resolved != total`` means a gold patch stopped resolving and
+    the self-test must fail (see finding #36)."""
     records = []
     for p in sorted(Path(artifacts_dir).rglob("*.jsonl")):
         records += [json.loads(line) for line in p.read_text().splitlines() if line.strip()]
     Path(out).write_text("".join(json.dumps(r) + "\n" for r in records))
     resolved = sum(1 for r in records if r.get("resolved"))
-    return resolved, len(records)
+    is_gold = any(r.get("model") == "gold" for r in records)
+    return resolved, len(records), is_gold
 
 
 def main() -> None:
@@ -78,8 +90,13 @@ def main() -> None:
     args = ap.parse_args()
 
     if args.aggregate:
-        resolved, total = aggregate(args.aggregate, args.out)
+        resolved, total, is_gold = _aggregate(args.aggregate, args.out)
         print(f"aggregate: {resolved}/{total} resolved -> {args.out}")
+        # Self-test guarantee: a gold run MUST resolve every task; otherwise a
+        # gold patch silently regressed and eval.yml must go red (#36).
+        if is_gold and resolved != total:
+            print(f"FAIL: gold self-test expected {total}/{total} resolved, got {resolved}")
+            sys.exit(1)
         return
 
     tasks = select_shard(load_tasks(args.dataset), args.shard, args.num_shards)
@@ -89,6 +106,12 @@ def main() -> None:
     resolved = sum(1 for r in records if r.resolved)
     print(f"shard {args.shard}/{args.num_shards} [{args.patch_source}]: "
           f"{resolved}/{len(records)} resolved -> {args.out}")
+    # With --patch-source gold this shard is the harness self-test: every task
+    # must resolve, so a non-resolution is a hard failure, not a silent print (#36).
+    if args.patch_source == "gold" and resolved != len(records):
+        unresolved = [r.task_id for r in records if not r.resolved]
+        print(f"FAIL: gold self-test left tasks unresolved: {unresolved}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -32,9 +32,9 @@ jobs:
       matrix:
         shard: [0, 1, 2, 3]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
         with:
           enable-cache: true
 
@@ -53,7 +53,7 @@ jobs:
             --shard "${SHARD}" --num-shards 4 \
             --out "runs-shard-${SHARD}.jsonl"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: runs-shard-${{ matrix.shard }}
           path: runs-shard-${{ matrix.shard }}.jsonl
@@ -64,22 +64,27 @@ jobs:
     needs: grade
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
         with:
           enable-cache: true
       - run: uv sync
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           path: artifacts
       - name: Aggregate run records
         run: |
+          # pipefail so the runner's non-zero exit on a gold self-test failure
+          # propagates through `tee` (which otherwise exits 0) and reds the job
+          # (finding #36). The runner exits 1 when a gold run leaves any task
+          # unresolved.
+          set -o pipefail
           uv run python -m forgejudge.harness.runner_actions --aggregate artifacts --out runs-all.jsonl | tee summary.txt
           echo "### ForgeJudge eval" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           cat summary.txt >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: runs-all
           path: runs-all.jsonl

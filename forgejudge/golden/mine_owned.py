@@ -36,6 +36,7 @@ its filename, and scaffolding the directory).
 
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -56,14 +57,26 @@ def _git(repo: Path, *args: str) -> str:
     return out.stdout.strip()
 
 
+def _slug_from_url(url: str) -> str:
+    """Parse the ``owner/name`` slug from any common git remote URL form.
+
+    Handles HTTPS (``https://github.com/owner/name.git``), SCP/SSH
+    (``git@github.com:owner/name.git`` — owner is separated from host by ``:``,
+    not ``/``), and bare/nested paths uniformly: strip a trailing ``.git``, then
+    take the last two path components after splitting on BOTH ``/`` and ``:``
+    (Finding #32 — ``rsplit('/')`` mis-parsed the SCP/SSH form).
+    """
+    parts = [p for p in re.split(r"[/:]", url.strip().removesuffix(".git")) if p]
+    return "/".join(parts[-2:])
+
+
 def repo_slug(repo: str | Path) -> str:
     """Return the ``owner/name`` slug from a clone's ``origin`` remote.
 
-    ``https://github.com/ahmedEid1/thoth.git`` -> ``ahmedEid1/thoth``.
+    ``https://github.com/ahmedEid1/thoth.git`` -> ``ahmedEid1/thoth``;
+    ``git@github.com:ahmedEid1/thoth.git`` -> ``ahmedEid1/thoth``.
     """
-    url = _git(Path(repo), "remote", "get-url", "origin")
-    slug = url.rsplit("/", 2)[-2:]  # ['ahmedEid1', 'thoth.git']
-    return "/".join(slug).removesuffix(".git")
+    return _slug_from_url(_git(Path(repo), "remote", "get-url", "origin"))
 
 
 def repo_head(repo: str | Path) -> str:
