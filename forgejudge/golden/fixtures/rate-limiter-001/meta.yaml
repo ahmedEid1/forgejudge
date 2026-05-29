@@ -1,0 +1,20 @@
+instance_id: fixture-rate-limiter-001
+family: make_ci_green
+problem_statement: |
+  A `RateLimiter(max_calls=3, window=10)` is meant to permit at most 3 calls per
+  10-second window, but it lets a 4th call through inside the same window before
+  it starts rejecting. With `max_calls=1` two calls in a row are both allowed.
+  The limiter consistently permits one more call than `max_calls`.
+source_license: own
+created_at: "2026-05-29"
+env_image: "python:3.12-slim"
+fail_to_pass:
+  - "test_limiter_bug.py::test_blocks_call_over_limit"
+  - "test_limiter_bug.py::test_exactly_max_calls_then_block"
+  - "test_limiter_bug.py::test_block_persists_until_window_resets"
+pass_to_pass:
+  - "test_limiter.py::test_first_call_allowed"
+  - "test_limiter.py::test_calls_within_limit_allowed"
+  - "test_limiter.py::test_window_resets_after_elapsed"
+  - "test_limiter.py::test_rejects_invalid_max_calls"
+  - "test_limiter.py::test_rejects_invalid_window"
