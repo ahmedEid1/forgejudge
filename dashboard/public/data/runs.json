@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-29T17:19:56.526071+00:00",
+  "generated_at": "2026-05-29T17:30:23.015014+00:00",
   "runs": [
     {
       "run_id": "groq/llama-3.1-8b-instant-fixture-csv-parser-001-seed0",
@@ -19,7 +19,9 @@
       "trace_url": "https://cloud.langfuse.com/project/cmpigz44q00shad0drro7l72k/traces/5298cca6eee4dc582a57244e64a7639a",
       "judge_score": null,
       "status": "ok",
-      "created_at": "2026-05-29T17:18:00.174666+00:00"
+      "created_at": "2026-05-29T17:18:00.174666+00:00",
+      "problem_statement": "A doubled double-quote inside a quoted field is lost instead of being kept as\none literal quote character. Parsing `\"a\"\"b\",c` yields `['ab', 'c']`, dropping\nthe embedded quote, when it should yield `['a\"b', 'c']`. Any field that uses\n`\"\"` to escape an inner quote comes back mangled.",
+      "patch": "diff --git a/csv_parser.py b/csv_parser.py\nindex fd8b455..32e8d2c 100644\n--- a/csv_parser.py\n+++ b/csv_parser.py\n@@ -11,28 +11,35 @@ def parse_line(line: str) -> list[str]:\n     fields: list[str] = []\n     buf: list[str] = []\n     in_quotes = False\n+    prev_ch = ''\n     i = 0\n     n = len(line)\n     while i < n:\n         ch = line[i]\n         if in_quotes:\n             if ch == '\"':\n-                in_quotes = False\n-                i += 1\n-                continue\n+                if prev_ch == '\"':\n+                    buf.append('\"')\n+                    in_quotes = False\n+                else:\n+                    in_quotes = False\n             buf.append(ch)\n             i += 1\n             continue\n         if ch == '\"':\n             in_quotes = True\n+        elif ch == \",\" and not in_quotes:\n+            fields.append(\"\".join(buf).replace('\"', ''))\n+            buf = []\n             i += 1\n             continue\n-        if ch == \",\":\n-            fields.append(\"\".join(buf))\n-            buf = []\n+        elif ch == \",\" and in_quotes:\n+            buf.append(ch)\n             i += 1\n             continue\n         buf.append(ch)\n         i += 1\n-    fields.append(\"\".join(buf))\n+        prev_ch = ch\n+    fields.append(\"\".join(buf).replace('\"', ''))\n     return fields\n+\n"
     },
     {
       "run_id": "groq/llama-3.1-8b-instant-fixture-interval-merge-001-seed0",
@@ -39,7 +41,9 @@
       "trace_url": "https://cloud.langfuse.com/project/cmpigz44q00shad0drro7l72k/traces/ee3c29f04d97ed679dac2e32fbc4da3f",
       "judge_score": null,
       "status": "ok",
-      "created_at": "2026-05-29T17:18:06.570292+00:00"
+      "created_at": "2026-05-29T17:18:06.570292+00:00",
+      "problem_statement": "`merge([(1, 3), (3, 5)])` returns `[(1, 3), (3, 5)]` but should return\n`[(1, 5)]`. Closed intervals that touch at a shared endpoint are left as two\nseparate intervals instead of being combined into one. Genuinely disjoint\nintervals (with a gap between them) must still be kept separate.",
+      "patch": "diff --git a/intervals.py b/intervals.py\nindex a21648e..25bdc21 100644\n--- a/intervals.py\n+++ b/intervals.py\n@@ -3,7 +3,7 @@\n An interval is a ``(start, end)`` tuple with ``start <= end``. ``merge`` returns\n a new sorted list where every set of overlapping or touching intervals has been\n combined into one. Closed intervals that share only an endpoint (e.g. ``(1, 3)``\n-and ``(3, 5)``) are considered to overlap and are merged into ``(1, 5)``.\n+and ``(3, 5)``) are considered to overlap and should be merged into ``(1, 5)`` for a given test case but generally they should not be merged.\n \"\"\"\n \n \n@@ -11,13 +11,14 @@ def merge(intervals: list) -> list:\n     \"\"\"Return the merged, sorted list of intervals.\"\"\"\n     if not intervals:\n         return []\n-    ordered = sorted(intervals, key=lambda iv: (iv[0], iv[1]))\n+    ordered = sorted(intervals, key=lambda iv: (iv[0], -iv[1]))  # modified to consider end points in descending order\n     merged = [tuple(ordered[0])]\n     for start, end in ordered[1:]:\n         last_start, last_end = merged[-1]\n-        if start < last_end:\n-            # overlapping -> extend the current interval\n+        if start <= last_end:  # modified to consider <=\n+            # overlapping or touching -> extend the current interval\n             merged[-1] = (last_start, max(last_end, end))\n         else:\n             merged.append((start, end))\n     return merged\n+\n"
     },
     {
       "run_id": "groq/llama-3.1-8b-instant-fixture-jsonpath-001-seed0",
@@ -59,7 +63,9 @@
       "trace_url": "https://cloud.langfuse.com/project/cmpigz44q00shad0drro7l72k/traces/941e5f07c4a7a1bbfb7fabf9d7bf5fab",
       "judge_score": null,
       "status": "ok",
-      "created_at": "2026-05-29T17:18:11.623171+00:00"
+      "created_at": "2026-05-29T17:18:11.623171+00:00",
+      "problem_statement": "`get({\"count\": 0}, \"count\", default=-1)` returns -1 instead of 0. Lookups that\nresolve to a falsy-but-valid leaf value (0, \"\", False) wrongly come back as the\ndefault, as if the key were missing. Genuinely absent keys should still return\nthe default.",
+      "patch": "diff --git a/jsonpath.py b/jsonpath.py\nindex 8b3a7ba..f8af253 100644\n--- a/jsonpath.py\n+++ b/jsonpath.py\n@@ -32,10 +32,10 @@ def get(data, path: str, default=None):\n                 return default\n             cur = cur[tok]\n         else:\n-            if not isinstance(cur, dict) or tok not in cur:\n+            if tok not in cur:\n+                # Check for falsy but valid values before returning default\n+                if isinstance(cur, dict) and all((k in cur.keys() and not cur[k]) for k in cur.keys()):\n+                    return default\n                 return default\n             cur = cur[tok]\n-        # stop early if we hit a \"missing\" value\n-        if not cur:\n-            return default\n     return cur\n"
     },
     {
       "run_id": "groq/llama-3.1-8b-instant-fixture-lru-cache-001-seed0",
@@ -79,7 +85,9 @@
       "trace_url": "https://cloud.langfuse.com/project/cmpigz44q00shad0drro7l72k/traces/65e1f65d0c874441fd7e39a62c5b4d0e",
       "judge_score": null,
       "status": "ok",
-      "created_at": "2026-05-29T17:18:16.699053+00:00"
+      "created_at": "2026-05-29T17:18:16.699053+00:00",
+      "problem_statement": "After reading a key with `get`, that key is still evicted as if it had never\nbeen touched. With capacity 2, `put('a',1); put('b',2); get('a'); put('c',3)`\nevicts 'a' even though 'a' was just read more recently than 'b'. Reads do not\ncount toward recency the way writes do.",
+      "patch": "diff --git a/lru_cache.py b/lru_cache.py\nindex 255f0e8..5e0344a 100644\n--- a/lru_cache.py\n+++ b/lru_cache.py\n@@ -16,18 +16,37 @@ class LRUCache:\n             raise ValueError(\"capacity must be positive\")\n         self.capacity = capacity\n         self._store: \"OrderedDict[object, object]\" = OrderedDict()\n+        # Keep a counter for each key to count the number of times it has been accessed\n+        self._access_counts: \"OrderedDict[object, int]\" = OrderedDict()\n+\n+    def _update_access_count(self, key):\n+        if key in self._access_counts:\n+            self._access_counts[key] += 1\n+        else:\n+            self._access_counts[key] = 1\n \n     def get(self, key, default=None):\n         if key not in self._store:\n             return default\n-        return self._store[key]\n+        value = self._store[key]\n+        self._update_access_count(key)\n+        return value\n \n     def put(self, key, value) -> None:\n         if key in self._store:\n+            self._update_access_count(key)\n             self._store.move_to_end(key)\n+        self._update_access_count(key)\n         self._store[key] = value\n         if len(self._store) > self.capacity:\n-            self._store.popitem(last=False)\n+            while len(self._store) > self.capacity:\n+                oldest_key = next(iter(self._store))\n+                if oldest_key not in self._store:\n+                    break\n+                self._store.popitem(last=False)\n+                # Decrement the access count for the evicted key\n+                self._access_counts.pop(oldest_key)\n+                break\n \n     def __len__(self) -> int:\n         return len(self._store)\n@@ -38,3 +57,4 @@ class LRUCache:\n     def keys(self):\n         \"\"\"Keys from least- to most-recently-used.\"\"\"\n         return list(self._store.keys())\n+\n"
     },
     {
       "run_id": "groq/llama-3.1-8b-instant-fixture-rate-limiter-001-seed0",
@@ -99,7 +107,9 @@
       "trace_url": "https://cloud.langfuse.com/project/cmpigz44q00shad0drro7l72k/traces/16fad808441996af1004520ab2a1b47b",
       "judge_score": null,
       "status": "ok",
-      "created_at": "2026-05-29T17:18:22.057693+00:00"
+      "created_at": "2026-05-29T17:18:22.057693+00:00",
+      "problem_statement": "A `RateLimiter(max_calls=3, window=10)` is meant to permit at most 3 calls per\n10-second window, but it lets a 4th call through inside the same window before\nit starts rejecting. With `max_calls=1` two calls in a row are both allowed.\nThe limiter consistently permits one more call than `max_calls`.",
+      "patch": "diff --git a/limiter.py b/limiter.py\nindex 79437d2..4849f1f 100644\n--- a/limiter.py\n+++ b/limiter.py\n@@ -23,9 +23,14 @@ class RateLimiter:\n         # current window has fully elapsed.\n         if self._window_start is None or now - self._window_start >= self.window:\n             self._window_start = now\n-            self._count = 0\n+            self._count = 0  # Reset the count at the start of each window\n \n-        if self._count > self.max_calls:\n-            return False\n-        self._count += 1\n+        elif now - self._window_start < self.window:  # Check for calls within current window\n+            if self._count >= self.max_calls:  # If current count is greater than max allowed calls\n+                return False\n+        else:  # Start a new window if the previous one has elapsed\n+            self._window_start = now\n+            self._count = 1  # Increment the count for the new window\n+        \n+        self._count += 1  # Increment the count\n         return True\n"
     },
     {
       "run_id": "groq/llama-3.1-8b-instant-fixture-retry-decorator-001-seed0",
@@ -119,7 +129,9 @@
       "trace_url": "https://cloud.langfuse.com/project/cmpigz44q00shad0drro7l72k/traces/d454f9f920c639301c5754015a4131df",
       "judge_score": null,
       "status": "ok",
-      "created_at": "2026-05-29T17:18:26.864453+00:00"
+      "created_at": "2026-05-29T17:18:26.864453+00:00",
+      "problem_statement": "`retry(attempts=N)` only ever calls the wrapped function N-1 times. A function\ndecorated with `attempts=3` that fails twice and would succeed on the third\ncall instead raises, because the final allowed attempt is never made. The last\nattempt is always skipped.",
+      "patch": "diff --git a/retry.py b/retry.py\nindex 2239418..ad77109 100644\n--- a/retry.py\n+++ b/retry.py\n@@ -18,7 +18,7 @@ def retry(attempts: int = 3, exceptions: tuple = (Exception,), on_retry=None):\n         @functools.wraps(func)\n         def wrapper(*args, **kwargs):\n             last_exc = None\n-            for attempt in range(1, attempts):\n+            for attempt in range(1, attempts + 1):  # Changed attempts+1\n                 try:\n                     return func(*args, **kwargs)\n                 except exceptions as exc:\n@@ -30,3 +30,4 @@ def retry(attempts: int = 3, exceptions: tuple = (Exception,), on_retry=None):\n         return wrapper\n \n     return decorator\n+\n"
     },
     {
       "run_id": "groq/llama-3.1-8b-instant-fixture-roman-numeral-001-seed0",
@@ -139,7 +151,9 @@
       "trace_url": "https://cloud.langfuse.com/project/cmpigz44q00shad0drro7l72k/traces/2f19adc59e49c06c9cf9f4abe09c7108",
       "judge_score": null,
       "status": "ok",
-      "created_at": "2026-05-29T17:18:33.006388+00:00"
+      "created_at": "2026-05-29T17:18:33.006388+00:00",
+      "problem_statement": "`to_roman(4)` returns \"IIII\" and `to_roman(9)` returns \"VIIII\". Larger values\nare affected too: `to_roman(1994)` returns \"MDCCCCLXXXXIIII\" instead of\n\"MCMXCIV\". Any number that contains a 4 or a 9 in one of its digit positions\nis rendered incorrectly.",
+      "patch": "diff --git a/roman.py b/roman.py\nindex d0b7daa..6ed80fb 100644\n--- a/roman.py\n+++ b/roman.py\n@@ -4,11 +4,17 @@\n # Value/symbol table, processed from largest to smallest.\n _TABLE = [\n     (1000, \"M\"),\n+    (900, \"CM\"), # added 900 and \"CM\"\n     (500, \"D\"),\n+    (400, \"CD\"), # added 400 and \"CD\"\n     (100, \"C\"),\n+    (90, \"XC\"), # added 90 and \"XC\"\n     (50, \"L\"),\n+    (40, \"XL\"), # added 40 and \"XL\"\n     (10, \"X\"),\n+    (9, \"IX\"), # added 9 and \"IX\"\n     (5, \"V\"),\n+    (4, \"IV\"), # added 4 and \"IV\"\n     (1, \"I\"),\n ]\n \n"
     },
     {
       "run_id": "groq/llama-3.1-8b-instant-fixture-rpn-eval-001-seed0",
@@ -159,7 +173,9 @@
       "trace_url": "https://cloud.langfuse.com/project/cmpigz44q00shad0drro7l72k/traces/997d52a43a9ff70f9eee56fdac1f24c3",
       "judge_score": null,
       "status": "ok",
-      "created_at": "2026-05-29T17:18:39.355524+00:00"
+      "created_at": "2026-05-29T17:18:39.355524+00:00",
+      "problem_statement": "`evaluate(\"5 3 -\")` returns -2.0 but should return 2.0, and `evaluate(\"8 2 /\")`\nreturns 0.25 instead of 4.0. Non-commutative operators (subtraction and\ndivision) compute their result with the two operands the wrong way round.\nAddition and multiplication are unaffected.",
+      "patch": "diff --git a/rpn.py b/rpn.py\nindex 12b35b8..f1b08f4 100644\n--- a/rpn.py\n+++ b/rpn.py\n@@ -10,9 +10,9 @@ def evaluate(expr: str) -> float:\n     stack: list = []\n     ops = {\n         \"+\": lambda a, b: a + b,\n-        \"-\": lambda a, b: a - b,\n+        \"-\": lambda a, b: b - a,  # <--- CORRECTED: Swap the order of a and b\n         \"*\": lambda a, b: a * b,\n-        \"/\": lambda a, b: a / b,\n+        \"/\": lambda a, b: b / a,  # <--- CORRECTED: Swap the order of a and b\n     }\n     for tok in expr.split():\n         if tok in ops:\n@@ -20,7 +20,7 @@ def evaluate(expr: str) -> float:\n                 raise ValueError(f\"not enough operands for {tok!r}\")\n             b = stack.pop()\n             a = stack.pop()\n-            stack.append(ops[tok](b, a))\n+            stack.append(ops[tok](a, b))  # <--- Also changed here\n         else:\n             try:\n                 stack.append(float(tok))\n@@ -29,3 +29,4 @@ def evaluate(expr: str) -> float:\n     if len(stack) != 1:\n         raise ValueError(\"malformed expression\")\n     return stack[0]\n+\n"
     },
     {
       "run_id": "groq/llama-3.1-8b-instant-fixture-semver-001-seed0",
@@ -179,7 +195,9 @@
       "trace_url": "https://cloud.langfuse.com/project/cmpigz44q00shad0drro7l72k/traces/20a88fd62dff8b9792229eb4f3bea04e",
       "judge_score": null,
       "status": "ok",
-      "created_at": "2026-05-29T17:18:43.020629+00:00"
+      "created_at": "2026-05-29T17:18:43.020629+00:00",
+      "problem_statement": "`compare('1.10.0', '1.9.0')` returns -1, but 1.10.0 is a newer version than\n1.9.0, so it should return 1. Version ordering is wrong whenever one component\nhas more digits than the component it is compared against (e.g. 1.10 vs 1.9).",
+      "patch": "diff --git a/semver.py b/semver.py\nindex e46c0f9..32a45ca 100644\n--- a/semver.py\n+++ b/semver.py\n@@ -6,15 +6,15 @@ def compare(a: str, b: str) -> int:\n \n     Returns -1 if ``a < b``, 0 if equal, 1 if ``a > b``.\n     \"\"\"\n-    pa = a.split(\".\")\n-    pb = b.split(\".\")\n+    pa = list(map(int, a.split(\".\")))  # Convert to integers\n+    pb = list(map(int, b.split(\".\")))  # Convert to integers\n+    max_len = max(len(pa), len(pb))\n+    pa += [0] * (max_len - len(pa))  # Pad with leading zeros\n+    pb += [0] * (max_len - len(pb))  # Pad with leading zeros\n     for x, y in zip(pa, pb):\n         if x < y:\n             return -1\n         if x > y:\n             return 1\n-    if len(pa) < len(pb):\n-        return -1\n-    if len(pa) > len(pb):\n-        return 1\n     return 0\n+\n"
     },
     {
       "run_id": "groq/llama-3.1-8b-instant-owned-handbook-clean-text-seed0",
@@ -199,7 +217,9 @@
       "trace_url": "https://cloud.langfuse.com/project/cmpigz44q00shad0drro7l72k/traces/4b75388a8bb25409bde381603cc7328e",
       "judge_score": null,
       "status": "ok",
-      "created_at": "2026-05-29T17:18:47.193347+00:00"
+      "created_at": "2026-05-29T17:18:47.193347+00:00",
+      "problem_statement": "``clean_text`` glues neighbouring words together when a stray markup character\nseparates them. ``clean_text(\"foo#bar\")`` returns ``\"foobar\"`` instead of\n``\"foo bar\"``, and ``clean_text(\"alpha|beta\")`` returns ``\"alphabeta\"``. Markup\ncharacters that fall between two words are being removed without leaving a word\nboundary, which corrupts the token stream fed to both ingestion and retrieval.",
+      "patch": "diff --git a/cleaning.py b/cleaning.py\nindex 1479ad7..0f4892a 100644\n--- a/cleaning.py\n+++ b/cleaning.py\n@@ -19,10 +19,9 @@ from __future__ import annotations\n import re\n \n # Characters the book strips out as markup/structural noise.\n-_UNWANTED_CHARS_RE = re.compile(r\"[{}[\\]\\\\#*`>|]\")\n+_UNWANTED_CHARS_RE = re.compile(r\"[{}[\\]\\\\|#*`>|]\")\n _MULTISPACE_RE = re.compile(r\"\\s+\")\n \n-\n def clean_text(text: str) -> str:\n     \"\"\"Normalize ``text``: drop non-ASCII, strip stray markup, collapse spaces.\"\"\"\n     if not text:\n@@ -33,9 +32,10 @@ def clean_text(text: str) -> str:\n     text = text.encode(\"ascii\", \"ignore\").decode(\"ascii\")\n \n     # Strip stray markup/bracket characters.\n-    text = _UNWANTED_CHARS_RE.sub(\"\", text)\n+    text = _UNWANTED_CHARS_RE.sub(\" \", text)  # Introduce a space\n \n     # Collapse whitespace runs into single spaces and trim the ends.\n     text = _MULTISPACE_RE.sub(\" \", text)\n \n     return text.strip()\n+\n"
     },
     {
       "run_id": "groq/llama-3.1-8b-instant-owned-handson-metrics-seed0",
@@ -219,7 +239,9 @@
       "trace_url": "https://cloud.langfuse.com/project/cmpigz44q00shad0drro7l72k/traces/b1edfeafb4da82dfceb9db5ff3d4f1ca",
       "judge_score": null,
       "status": "error",
-      "created_at": "2026-05-29T17:18:51.672889+00:00"
+      "created_at": "2026-05-29T17:18:51.672889+00:00",
+      "problem_statement": "Per-class precision is wrong whenever a class has false positives. For the\n10-sample binary example with confusion matrix ``[[2, 2], [0, 6]]``, class 1\nhas 2 false positives and 0 false negatives, so its precision should be\n``6/8 = 0.75`` and recall ``6/6 = 1.0`` \u2014 but ``per_class_metrics`` reports\nprecision ``1.0`` (equal to recall). Likewise class 0's precision should be\n``1.0`` but comes out ``0.5``, and the weighted-average precision is ``0.80``\ninstead of ``0.85``. Precision and recall are effectively swapped on any\nasymmetric confusion matrix.",
+      "patch": ""
     },
     {
       "run_id": "groq/llama-3.1-8b-instant-owned-raschka-tokenizer-seed0",
@@ -239,7 +261,9 @@
       "trace_url": "https://cloud.langfuse.com/project/cmpigz44q00shad0drro7l72k/traces/f1bfcbb567b99cb0b3fe51725f70f6f5",
       "judge_score": null,
       "status": "ok",
-      "created_at": "2026-05-29T17:19:09.917984+00:00"
+      "created_at": "2026-05-29T17:19:09.917984+00:00",
+      "problem_statement": "Decoding a sequence through SimpleTokenizerV2 leaves a stray space before\nevery semicolon: ``decode(encode(\"Hello; world\"))`` returns ``\"Hello ; world\"``\ninstead of ``\"Hello; world\"``. The semicolon is correctly split into its own\ntoken on encode, but on decode it is not re-attached to the preceding word the\nway other punctuation (comma, period, colon, question mark, exclamation mark)\nis. Round-tripping any text that contains ``;`` no longer reproduces the input.",
+      "patch": "diff --git a/tokenizer.py b/tokenizer.py\nindex f530bde..ea51cfb 100644\n--- a/tokenizer.py\n+++ b/tokenizer.py\n@@ -167,10 +167,14 @@ class SimpleTokenizerV2:\n \n         Spaces before punctuation characters are removed so that the output\n         reads naturally.\n+\n+        Now re-attaches the semicolon to the preceding word if necessary.\n         \"\"\"\n         text = \" \".join(self.int_to_str[i] for i in ids)\n-        # Remove spaces before punctuation.\n-        text = re.sub(r'\\s+([,.:?!\"()\\'])', r'\\1', text)\n+        # Remove spaces and restore ; at the boundary between tokens\n+        text = re.sub(r' ([,.?:\"\\'])', r'\\1', text)\n+        text = re.sub(r' ([;])', r'\\1', text)\n+        text = re.sub(r'\\s+', ' ', text)  # remove all extra spaces\n         return text\n \n \n"
     },
     {
       "run_id": "groq/llama-3.3-70b-versatile-fixture-csv-parser-001-seed0",
@@ -259,7 +283,9 @@
       "trace_url": "https://cloud.langfuse.com/project/cmpigz44q00shad0drro7l72k/traces/5bdb987ff95315b8a48f64cc51230268",
       "judge_score": null,
       "status": "ok",
-      "created_at": "2026-05-29T17:16:28.588081+00:00"
+      "created_at": "2026-05-29T17:16:28.588081+00:00",
+      "problem_statement": "A doubled double-quote inside a quoted field is lost instead of being kept as\none literal quote character. Parsing `\"a\"\"b\",c` yields `['ab', 'c']`, dropping\nthe embedded quote, when it should yield `['a\"b', 'c']`. Any field that uses\n`\"\"` to escape an inner quote comes back mangled.",
+      "patch": "diff --git a/csv_parser.py b/csv_parser.py\nindex fd8b455..54ac317 100644\n--- a/csv_parser.py\n+++ b/csv_parser.py\n@@ -17,9 +17,14 @@ def parse_line(line: str) -> list[str]:\n         ch = line[i]\n         if in_quotes:\n             if ch == '\"':\n-                in_quotes = False\n-                i += 1\n-                continue\n+                if i + 1 < n and line[i + 1] == '\"':\n+                    buf.append('\"')\n+                    i += 2\n+                    continue\n+                else:\n+                    in_quotes = False\n+                    i += 1\n+                    continue\n             buf.append(ch)\n             i += 1\n             continue\n"
     },
     {
       "run_id": "groq/llama-3.3-70b-versatile-fixture-interval-merge-001-seed0",
@@ -279,7 +305,9 @@
       "trace_url": "https://cloud.langfuse.com/project/cmpigz44q00shad0drro7l72k/traces/284ed64c1c8583983350c648a9591d83",
       "judge_score": null,
       "status": "ok",
-      "created_at": "2026-05-29T17:16:34.768405+00:00"
+      "created_at": "2026-05-29T17:16:34.768405+00:00",
+      "problem_statement": "`merge([(1, 3), (3, 5)])` returns `[(1, 3), (3, 5)]` but should return\n`[(1, 5)]`. Closed intervals that touch at a shared endpoint are left as two\nseparate intervals instead of being combined into one. Genuinely disjoint\nintervals (with a gap between them) must still be kept separate.",
+      "patch": "diff --git a/intervals.py b/intervals.py\nindex a21648e..6c55fb9 100644\n--- a/intervals.py\n+++ b/intervals.py\n@@ -15,8 +15,8 @@ def merge(intervals: list) -> list:\n     merged = [tuple(ordered[0])]\n     for start, end in ordered[1:]:\n         last_start, last_end = merged[-1]\n-        if start < last_end:\n-            # overlapping -> extend the current interval\n+        if start <= last_end:\n+            # overlapping or adjacent -> extend the current interval\n             merged[-1] = (last_start, max(last_end, end))\n         else:\n             merged.append((start, end))\n"
     },
     {
       "run_id": "groq/llama-3.3-70b-versatile-fixture-jsonpath-001-seed0",
@@ -299,7 +327,9 @@
       "trace_url": "https://cloud.langfuse.com/project/cmpigz44q00shad0drro7l72k/traces/45e19323335bf29265b905bcd289e7cf",
       "judge_score": null,
       "status": "ok",
-      "created_at": "2026-05-29T17:16:39.970739+00:00"
+      "created_at": "2026-05-29T17:16:39.970739+00:00",
+      "problem_statement": "`get({\"count\": 0}, \"count\", default=-1)` returns -1 instead of 0. Lookups that\nresolve to a falsy-but-valid leaf value (0, \"\", False) wrongly come back as the\ndefault, as if the key were missing. Genuinely absent keys should still return\nthe default.",
+      "patch": "diff --git a/jsonpath.py b/jsonpath.py\nindex 8b3a7ba..6e3e048 100644\n--- a/jsonpath.py\n+++ b/jsonpath.py\n@@ -35,7 +35,5 @@ def get(data, path: str, default=None):\n             if not isinstance(cur, dict) or tok not in cur:\n                 return default\n             cur = cur[tok]\n-        # stop early if we hit a \"missing\" value\n-        if not cur:\n-            return default\n-    return cur\n+    # Only return default if cur is None, otherwise return cur as is\n+    return default if cur is None else cur\n"
     },
     {
       "run_id": "groq/llama-3.3-70b-versatile-fixture-lru-cache-001-seed0",
@@ -319,7 +349,9 @@
       "trace_url": "https://cloud.langfuse.com/project/cmpigz44q00shad0drro7l72k/traces/49a2b8538c5f83e1fcfda1c86f52a720",
       "judge_score": null,
       "status": "ok",
-      "created_at": "2026-05-29T17:16:44.518198+00:00"
+      "created_at": "2026-05-29T17:16:44.518198+00:00",
+      "problem_statement": "After reading a key with `get`, that key is still evicted as if it had never\nbeen touched. With capacity 2, `put('a',1); put('b',2); get('a'); put('c',3)`\nevicts 'a' even though 'a' was just read more recently than 'b'. Reads do not\ncount toward recency the way writes do.",
+      "patch": "diff --git a/lru_cache.py b/lru_cache.py\nindex 255f0e8..9a20a08 100644\n--- a/lru_cache.py\n+++ b/lru_cache.py\n@@ -20,6 +20,7 @@ class LRUCache:\n     def get(self, key, default=None):\n         if key not in self._store:\n             return default\n+        self._store.move_to_end(key)\n         return self._store[key]\n \n     def put(self, key, value) -> None:\n"
     },
     {
       "run_id": "groq/llama-3.3-70b-versatile-fixture-rate-limiter-001-seed0",
@@ -339,7 +371,9 @@
       "trace_url": "https://cloud.langfuse.com/project/cmpigz44q00shad0drro7l72k/traces/678b0971a0f58e7a84e03f62a9cb7d57",
       "judge_score": null,
       "status": "ok",
-      "created_at": "2026-05-29T17:16:50.007670+00:00"
+      "created_at": "2026-05-29T17:16:50.007670+00:00",
+      "problem_statement": "A `RateLimiter(max_calls=3, window=10)` is meant to permit at most 3 calls per\n10-second window, but it lets a 4th call through inside the same window before\nit starts rejecting. With `max_calls=1` two calls in a row are both allowed.\nThe limiter consistently permits one more call than `max_calls`.",
+      "patch": "diff --git a/limiter.py b/limiter.py\nindex 79437d2..6c51f03 100644\n--- a/limiter.py\n+++ b/limiter.py\n@@ -25,7 +25,7 @@ class RateLimiter:\n             self._window_start = now\n             self._count = 0\n \n-        if self._count > self.max_calls:\n+        if self._count >= self.max_calls:\n             return False\n         self._count += 1\n         return True\n"
     },
     {
       "run_id": "groq/llama-3.3-70b-versatile-fixture-retry-decorator-001-seed0",
@@ -359,7 +393,9 @@
       "trace_url": "https://cloud.langfuse.com/project/cmpigz44q00shad0drro7l72k/traces/5931b671d10826fec50464012b41aad7",
       "judge_score": null,
       "status": "ok",
-      "created_at": "2026-05-29T17:16:55.415544+00:00"
+      "created_at": "2026-05-29T17:16:55.415544+00:00",
+      "problem_statement": "`retry(attempts=N)` only ever calls the wrapped function N-1 times. A function\ndecorated with `attempts=3` that fails twice and would succeed on the third\ncall instead raises, because the final allowed attempt is never made. The last\nattempt is always skipped.",
+      "patch": "diff --git a/retry.py b/retry.py\nindex 2239418..859f5bd 100644\n--- a/retry.py\n+++ b/retry.py\n@@ -1,9 +1,9 @@\n \"\"\"A retry decorator that re-invokes a function when it raises.\n \n-``retry(attempts=N)`` calls the wrapped function up to ``N`` times in total. If\n-a call raises one of ``exceptions``, the next attempt runs; the value from the\n+`retry(attempts=N)` calls the wrapped function up to `N` times in total. If\n+a call raises one of `exceptions`, the next attempt runs; the value from the\n first successful call is returned. If every attempt raises, the exception from\n-the final attempt propagates. ``on_retry`` (if given) is called with the\n+the final attempt propagates. `on_retry` (if given) is called with the\n 1-based attempt number that just failed.\n \"\"\"\n \n@@ -18,14 +18,15 @@ def retry(attempts: int = 3, exceptions: tuple = (Exception,), on_retry=None):\n         @functools.wraps(func)\n         def wrapper(*args, **kwargs):\n             last_exc = None\n-            for attempt in range(1, attempts):\n+            for attempt in range(1, attempts + 1):  # Include the last attempt\n                 try:\n                     return func(*args, **kwargs)\n                 except exceptions as exc:\n                     last_exc = exc\n                     if on_retry is not None:\n                         on_retry(attempt)\n-            raise last_exc\n+            if last_exc is not None:  # Check for None to avoid raising None\n+                raise last_exc\n \n         return wrapper\n \n"
     },
     {
       "run_id": "groq/llama-3.3-70b-versatile-fixture-roman-numeral-001-seed0",
@@ -379,7 +415,9 @@
       "trace_url": "https://cloud.langfuse.com/project/cmpigz44q00shad0drro7l72k/traces/c7c9e9f44082e68c8b28ad7812f3e7f1",
       "judge_score": null,
       "status": "ok",
-      "created_at": "2026-05-29T17:17:01.631055+00:00"
+      "created_at": "2026-05-29T17:17:01.631055+00:00",
+      "problem_statement": "`to_roman(4)` returns \"IIII\" and `to_roman(9)` returns \"VIIII\". Larger values\nare affected too: `to_roman(1994)` returns \"MDCCCCLXXXXIIII\" instead of\n\"MCMXCIV\". Any number that contains a 4 or a 9 in one of its digit positions\nis rendered incorrectly.",
+      "patch": "diff --git a/roman.py b/roman.py\nindex d0b7daa..fea7e77 100644\n--- a/roman.py\n+++ b/roman.py\n@@ -4,11 +4,17 @@\n # Value/symbol table, processed from largest to smallest.\n _TABLE = [\n     (1000, \"M\"),\n+    (900, \"CM\"),\n     (500, \"D\"),\n+    (400, \"CD\"),\n     (100, \"C\"),\n+    (90, \"XC\"),\n     (50, \"L\"),\n+    (40, \"XL\"),\n     (10, \"X\"),\n+    (9, \"IX\"),\n     (5, \"V\"),\n+    (4, \"IV\"),\n     (1, \"I\"),\n ]\n \n"
     },
     {
       "run_id": "groq/llama-3.3-70b-versatile-fixture-rpn-eval-001-seed0",
@@ -399,7 +437,9 @@
       "trace_url": "https://cloud.langfuse.com/project/cmpigz44q00shad0drro7l72k/traces/dab0feabc8d352e24cde828ac2e6ce61",
       "judge_score": null,
       "status": "ok",
-      "created_at": "2026-05-29T17:17:08.189978+00:00"
+      "created_at": "2026-05-29T17:17:08.189978+00:00",
+      "problem_statement": "`evaluate(\"5 3 -\")` returns -2.0 but should return 2.0, and `evaluate(\"8 2 /\")`\nreturns 0.25 instead of 4.0. Non-commutative operators (subtraction and\ndivision) compute their result with the two operands the wrong way round.\nAddition and multiplication are unaffected.",
+      "patch": "diff --git a/rpn.py b/rpn.py\nindex 12b35b8..e231260 100644\n--- a/rpn.py\n+++ b/rpn.py\n@@ -20,7 +20,7 @@ def evaluate(expr: str) -> float:\n                 raise ValueError(f\"not enough operands for {tok!r}\")\n             b = stack.pop()\n             a = stack.pop()\n-            stack.append(ops[tok](b, a))\n+            stack.append(ops[tok](a, b))  # Corrected the order of a and b here\n         else:\n             try:\n                 stack.append(float(tok))\n"
     },
     {
       "run_id": "groq/llama-3.3-70b-versatile-fixture-semver-001-seed0",
@@ -419,7 +459,9 @@
       "trace_url": "https://cloud.langfuse.com/project/cmpigz44q00shad0drro7l72k/traces/0e2534b0b9c9061c3ff5003d0e5e2058",
       "judge_score": null,
       "status": "ok",
-      "created_at": "2026-05-29T17:17:12.048133+00:00"
+      "created_at": "2026-05-29T17:17:12.048133+00:00",
+      "problem_statement": "`compare('1.10.0', '1.9.0')` returns -1, but 1.10.0 is a newer version than\n1.9.0, so it should return 1. Version ordering is wrong whenever one component\nhas more digits than the component it is compared against (e.g. 1.10 vs 1.9).",
+      "patch": "diff --git a/semver.py b/semver.py\nindex e46c0f9..f49b3b9 100644\n--- a/semver.py\n+++ b/semver.py\n@@ -1,20 +1,18 @@\n \"\"\"A tiny semantic-version comparator.\"\"\"\n \n-\n def compare(a: str, b: str) -> int:\n     \"\"\"Compare two dotted version strings.\n \n     Returns -1 if ``a < b``, 0 if equal, 1 if ``a > b``.\n     \"\"\"\n-    pa = a.split(\".\")\n-    pb = b.split(\".\")\n+    pa = list(map(int, a.split(\".\")))\n+    pb = list(map(int, b.split(\".\")))\n+    max_len = max(len(pa), len(pb))\n+    pa += [0] * (max_len - len(pa))\n+    pb += [0] * (max_len - len(pb))\n     for x, y in zip(pa, pb):\n         if x < y:\n             return -1\n         if x > y:\n             return 1\n-    if len(pa) < len(pb):\n-        return -1\n-    if len(pa) > len(pb):\n-        return 1\n     return 0\n"
     },
     {
       "run_id": "groq/llama-3.3-70b-versatile-owned-handbook-clean-text-seed0",
@@ -439,7 +481,9 @@
       "trace_url": "https://cloud.langfuse.com/project/cmpigz44q00shad0drro7l72k/traces/a8bb2570a286838ec33ee8490acdf06e",
       "judge_score": null,
       "status": "ok",
-      "created_at": "2026-05-29T17:17:16.917416+00:00"
+      "created_at": "2026-05-29T17:17:16.917416+00:00",
+      "problem_statement": "``clean_text`` glues neighbouring words together when a stray markup character\nseparates them. ``clean_text(\"foo#bar\")`` returns ``\"foobar\"`` instead of\n``\"foo bar\"``, and ``clean_text(\"alpha|beta\")`` returns ``\"alphabeta\"``. Markup\ncharacters that fall between two words are being removed without leaving a word\nboundary, which corrupts the token stream fed to both ingestion and retrieval.",
+      "patch": "diff --git a/cleaning.py b/cleaning.py\nindex 1479ad7..b6c8f4f 100644\n--- a/cleaning.py\n+++ b/cleaning.py\n@@ -22,6 +22,8 @@ import re\n _UNWANTED_CHARS_RE = re.compile(r\"[{}[\\]\\\\#*`>|]\")\n _MULTISPACE_RE = re.compile(r\"\\s+\")\n \n+# Characters that should be replaced with a space when found between words\n+_SEPARATING_CHARS_RE = re.compile(r\"[#|]\")\n \n def clean_text(text: str) -> str:\n     \"\"\"Normalize ``text``: drop non-ASCII, strip stray markup, collapse spaces.\"\"\"\n@@ -32,6 +34,9 @@ def clean_text(text: str) -> str:\n     # trick: ASCII-encode ignoring errors, then decode back.\n     text = text.encode(\"ascii\", \"ignore\").decode(\"ascii\")\n \n+    # Replace markup characters between words with a space\n+    text = _SEPARATING_CHARS_RE.sub(\" \", text)\n+\n     # Strip stray markup/bracket characters.\n     text = _UNWANTED_CHARS_RE.sub(\"\", text)\n \n"
     },
     {
       "run_id": "groq/llama-3.3-70b-versatile-owned-handson-metrics-seed0",
@@ -459,7 +503,9 @@
       "trace_url": "https://cloud.langfuse.com/project/cmpigz44q00shad0drro7l72k/traces/88653f962b93564698e5bd17a5399142",
       "judge_score": null,
       "status": "ok",
-      "created_at": "2026-05-29T17:17:30.526082+00:00"
+      "created_at": "2026-05-29T17:17:30.526082+00:00",
+      "problem_statement": "Per-class precision is wrong whenever a class has false positives. For the\n10-sample binary example with confusion matrix ``[[2, 2], [0, 6]]``, class 1\nhas 2 false positives and 0 false negatives, so its precision should be\n``6/8 = 0.75`` and recall ``6/6 = 1.0`` \u2014 but ``per_class_metrics`` reports\nprecision ``1.0`` (equal to recall). Likewise class 0's precision should be\n``1.0`` but comes out ``0.5``, and the weighted-average precision is ``0.80``\ninstead of ``0.85``. Precision and recall are effectively swapped on any\nasymmetric confusion matrix.",
+      "patch": "diff --git a/metrics.py b/metrics.py\nindex cb1c1ab..57c857d 100644\n--- a/metrics.py\n+++ b/metrics.py\n@@ -127,7 +127,7 @@ def per_class_metrics(\n     results: List[ClassMetrics] = []\n     for i, label in enumerate(labels):\n         tp = matrix[i][i]\n-        fp = sum(matrix[i][c] for c in range(n)) - tp\n+        fp = sum(matrix[j][i] for j in range(n)) - tp  # Corrected this line\n         support = sum(matrix[i])  # row total = TP + FN = true instances\n         fn = support - tp\n         precision = _safe_div(tp, tp + fp)\n"
     },
     {
       "run_id": "groq/llama-3.3-70b-versatile-owned-raschka-tokenizer-seed0",
@@ -479,7 +525,9 @@
       "trace_url": "https://cloud.langfuse.com/project/cmpigz44q00shad0drro7l72k/traces/bb978eb03c06d127c52081c4fa185d12",
       "judge_score": null,
       "status": "ok",
-      "created_at": "2026-05-29T17:17:46.762568+00:00"
+      "created_at": "2026-05-29T17:17:46.762568+00:00",
+      "problem_statement": "Decoding a sequence through SimpleTokenizerV2 leaves a stray space before\nevery semicolon: ``decode(encode(\"Hello; world\"))`` returns ``\"Hello ; world\"``\ninstead of ``\"Hello; world\"``. The semicolon is correctly split into its own\ntoken on encode, but on decode it is not re-attached to the preceding word the\nway other punctuation (comma, period, colon, question mark, exclamation mark)\nis. Round-tripping any text that contains ``;`` no longer reproduces the input.",
+      "patch": "diff --git a/tokenizer.py b/tokenizer.py\nindex f530bde..84ef2ea 100644\n--- a/tokenizer.py\n+++ b/tokenizer.py\n@@ -114,7 +114,7 @@ class SimpleTokenizerV1:\n         \"\"\"\n         text = \" \".join(self.int_to_str[i] for i in ids)\n         # Remove spaces that were inserted before punctuation during join.\n-        text = re.sub(r'\\s+([,.?!\"()\\'])', r'\\1', text)\n+        text = re.sub(r'\\s+([,.?:!\"()\\'])', r'\\1', text)\n         return text\n \n \n@@ -170,7 +170,7 @@ class SimpleTokenizerV2:\n         \"\"\"\n         text = \" \".join(self.int_to_str[i] for i in ids)\n         # Remove spaces before punctuation.\n-        text = re.sub(r'\\s+([,.:?!\"()\\'])', r'\\1', text)\n+        text = re.sub(r'\\s+([,.?:!\"()\\'])', r'\\1', text)\n         return text\n \n \n"
     }
   ]
 }

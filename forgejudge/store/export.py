@@ -14,16 +14,17 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 DEFAULT_OUT = REPO_ROOT / "dashboard" / "public" / "data"
 
 _RUNS_SQL = """
-    SELECT run_id, task_id, model, scaffold_version, seed, resolved,
-           f2p_passed, f2p_total, p2p_passed, p2p_total,
-           tokens_in, tokens_out, cost_usd, wall_clock_s, trace_url, judge_score,
-           status, created_at
-    FROM runs ORDER BY model, task_id, seed
+    SELECT r.run_id, r.task_id, r.model, r.scaffold_version, r.seed, r.resolved,
+           r.f2p_passed, r.f2p_total, r.p2p_passed, r.p2p_total,
+           r.tokens_in, r.tokens_out, r.cost_usd, r.wall_clock_s, r.trace_url, r.judge_score,
+           r.status, r.created_at, COALESCE(t.problem_statement, ''), r.patch
+    FROM runs r LEFT JOIN tasks t ON t.instance_id = r.task_id
+    ORDER BY r.model, r.task_id, r.seed
 """
 _RUN_COLS = ["run_id", "task_id", "model", "scaffold_version", "seed", "resolved",
              "f2p_passed", "f2p_total", "p2p_passed", "p2p_total", "tokens_in",
              "tokens_out", "cost_usd", "wall_clock_s", "trace_url", "judge_score",
-             "status", "created_at"]
+             "status", "created_at", "problem_statement", "patch"]
 
 
 def export_snapshot(out_dir: str | Path = DEFAULT_OUT, *, now: str | None = None) -> dict:

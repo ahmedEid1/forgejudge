@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ForgeJudge — replay playground</title>
+  <meta name="description" content="Step through a real recorded agent solve: issue → patch → deterministic test verdict → public trace. Replay-first: no live model call." />
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    select { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; font-family: var(--mono); font-size: 13px; }
+    .step { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin: 12px 0; }
+    .step h3 { margin: 0 0 8px; }
+    .step .n { color: var(--accent); font-family: var(--mono); }
+    pre { background: #0a0e13; border: 1px solid var(--border); border-radius: 8px; padding: 12px; overflow: auto; font-family: var(--mono); font-size: 12.5px; line-height: 1.5; max-height: 360px; }
+    .diff .add { color: var(--green); } .diff .del { color: var(--red); } .diff .hh { color: var(--muted); }
+    .controls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin: 12px 0; }
+  </style>
+</head>
+<body>
+  <header class="site"><div class="wrap">
+    <span class="brand"><span class="mark">Forge</span>Judge</span>
+    <nav class="top">
+      <a href="index.html">Leaderboard</a>
+      <a href="playground.html" class="active">Playground</a>
+      <a href="methodology.html">Methodology</a>
+      <a href="https://github.com/ahmedEid1/forgejudge" target="_blank" rel="noopener">GitHub ↗</a>
+    </nav>
+  </div></header>
+
+  <main class="wrap">
+    <section class="hero">
+      <h1>Replay playground</h1>
+      <p class="lede">Step through a <b>real recorded</b> agent solve — issue → localized patch → deterministic
+        test verdict → public trace. <b>Replay-first:</b> no live model call, no quota risk; the run was scored once,
+        deterministically, and is reproducible.</p>
+      <div class="note">🟢 <b>Replay mode</b> — these are real, previously-graded runs from the leaderboard. (A guarded
+        live runner on a Hugging Face Space is the optional, rate-limited counterpart.)</div>
+      <div class="controls">
+        <label for="pick">Run:</label>
+        <select id="pick" aria-label="choose a recorded run"></select>
+      </div>
+    </section>
+    <section id="replay"><p class="muted">Loading recorded runs…</p></section>
+  </main>
+
+  <footer class="site"><div class="wrap">ForgeJudge — MIT · <a href="methodology.html">methodology</a> · <a href="impressum.html">Impressum</a></div></footer>
+
+  <script>
+    const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+    const safeUrl = (u) => (/^https?:\/\//i.test(u || "") ? u : "");
+    function diffHTML(patch) {
+      return esc(patch || "").split("\n").map((l) => {
+        if (l.startsWith("+") && !l.startsWith("+++")) return `<span class="add">${l}</span>`;
+        if (l.startsWith("-") && !l.startsWith("---")) return `<span class="del">${l}</span>`;
+        if (l.startsWith("@@") || l.startsWith("diff ") || l.startsWith("+++") || l.startsWith("---")) return `<span class="hh">${l}</span>`;
+        return l;
+      }).join("\n");
+    }
+    function render(run) {
+      const url = safeUrl(run.trace_url);
+      const verdict = run.resolved
+        ? '<span class="badge pass">RESOLVED</span>'
+        : '<span class="badge fail">unsolved</span>';
+      document.getElementById("replay").innerHTML = `
+        <div class="step"><h3><span class="n">1.</span> Issue (the agent sees only this + the buggy code)</h3>
+          <pre>${esc(run.problem_statement || "(n/a)")}</pre></div>
+        <div class="step"><h3><span class="n">2.</span> Agent — model <code>${esc(run.model)}</code>, hidden-test mode</h3>
+          <p class="small muted">localize → repair → validate. The FAIL_TO_PASS test is hidden until grading.</p></div>
+        <div class="step"><h3><span class="n">3.</span> Candidate patch (source only)</h3>
+          <pre class="diff">${diffHTML(run.patch) || "(empty)"}</pre></div>
+        <div class="step"><h3><span class="n">4.</span> Deterministic, cheat-resistant verdict</h3>
+          <p>${verdict} &nbsp; FAIL_TO_PASS ${run.f2p_passed}/${run.f2p_total} · PASS_TO_PASS ${run.p2p_passed}/${run.p2p_total}
+             &nbsp;·&nbsp; ${run.tokens_in + run.tokens_out} tokens · $${(run.cost_usd||0).toFixed(4)}</p>
+          ${url ? `<p><a href="${esc(url)}" target="_blank" rel="noopener">Open the full OpenTelemetry trace in Langfuse ↗</a></p>` : ""}
+        </div>`;
+    }
+    (async () => {
+      let runs = [];
+      try { runs = (await (await fetch("data/runs.json", { cache: "no-store" })).json()).runs || []; }
+      catch { document.getElementById("replay").innerHTML = '<p class="muted">No recorded runs available yet.</p>'; return; }
+      const sel = document.getElementById("pick");
+      runs.forEach((r, i) => {
+        const o = document.createElement("option");
+        o.value = i; o.textContent = `${r.task_id} — ${r.model} — ${r.resolved ? "resolved" : "unsolved"}`;
+        sel.appendChild(o);
+      });
+      sel.addEventListener("change", () => render(runs[sel.value]));
+      if (runs.length) render(runs[0]); else document.getElementById("replay").innerHTML = '<p class="muted">No runs yet.</p>';
+    })();
+  </script>
+</body>
+</html>
