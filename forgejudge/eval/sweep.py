@@ -90,6 +90,11 @@ def main() -> None:
     ap.add_argument("--out", default="", help="also write RunRecords to this jsonl")
     args = ap.parse_args()
 
+    # Export per-run showcase traces to Langfuse (no-op if keys absent).
+    from forgejudge.obs.tracing import setup_tracing
+
+    setup_tracing()
+
     seeds = [int(s) for s in args.seeds.split(",") if s.strip()]
     conn = None
     if not args.no_store:
