@@ -33,7 +33,7 @@ def test_solve_emits_genai_span_tree_and_trace_url():
     setup_tracing(exporter=mem)
 
     res = solve(TASKS[SEMVER], run_id="trace-1", budget_usd=0.1, seed=0, max_steps=2,
-                complete_fn=_gold_fake())
+                show_failing_test=True, complete_fn=_gold_fake())
     assert res.status == "ok"
     assert res.trace_url and "traces/" in res.trace_url
 

@@ -94,11 +94,21 @@ def solve(
     complete_fn: CompleteFn | None = None,
     critic_fn: CompleteFn | None = None,
     source_dir: str | Path | None = None,
+    show_failing_test: bool = False,
 ) -> SolveResult:
     """Produce a candidate unified-diff patch for ``task``.
 
-    The agent works against base + test_patch (the failing test is visible — this
-    is "make CI green"); it may edit only source. Validation runs the real tests.
+    Two modes:
+
+    * ``show_failing_test=False`` (default, the credible benchmark): the agent
+      sees only the issue text + the buggy code (base, with its existing
+      PASS_TO_PASS tests) — the FAIL_TO_PASS test is HIDDEN, applied only at
+      grading. It fixes from the issue and validates against no-regression. This
+      is the real SWE-bench setup; resolution is decided by the hidden oracle.
+    * ``show_failing_test=True``: the failing test is materialised and shown
+      (test-driven repair). Easier; useful for harness tests / demos.
+
+    The agent may edit only source; tests are restored at grading time.
     """
     complete_fn = complete_fn or complete
     src = Path(source_dir) if source_dir is not None else source_dir_for(task.instance_id)
@@ -122,9 +132,10 @@ def solve(
         try:
             copy_tree(src / "base", work)
             init_base_repo(work)
-            apply_unified_diff(work, task.test_patch)
-            git(work, "add", "-A")
-            git(work, "commit", "-q", "-m", "base+test")
+            if show_failing_test:
+                apply_unified_diff(work, task.test_patch)
+                git(work, "add", "-A")
+                git(work, "commit", "-q", "-m", "base+test")
 
             with tracer.start_as_current_span("retrieval") as rsp:
                 rsp.set_attribute(GEN_AI_OPERATION, "retrieval")
@@ -136,7 +147,7 @@ def solve(
                                   explanation="no source file to edit")
                 return SolveResult("", "error", 0, 0.0, False, 0, 0, trace_url)
 
-            failing_tests = _read_failing_tests(work, task)
+            failing_tests = _read_failing_tests(work, task) if show_failing_test else ""
             feedback = ""
             for _ in range(max_steps):
                 if cost >= budget_usd > 0:
@@ -177,17 +188,26 @@ def solve(
                 (work / target).write_text(code)
                 with tracer.start_as_current_span("execute_tool") as tsp:
                     tsp.set_attribute(GEN_AI_TOOL_NAME, "pytest")
-                    f2p, _ = run_nodeids_status(work, task.fail_to_pass)
                     p2p, _ = run_nodeids_status(work, task.pass_to_pass)
-                if _all_pass(f2p) and _all_pass(p2p):
-                    status = "ok"
-                    break
+                    # The FAIL_TO_PASS test only exists in the tree when visible.
+                    f2p = run_nodeids_status(work, task.fail_to_pass)[0] if show_failing_test else {}
 
-                failed = [n for n, ok in {**f2p, **p2p}.items() if not ok]
-                feedback = "These tests still fail: " + ", ".join(failed)
-                git(work, "checkout", "HEAD", "--", target)  # greedy: retry from clean base
+                if show_failing_test:
+                    if _all_pass(f2p) and _all_pass(p2p):
+                        status = "ok"
+                        break
+                    failed = [n for n, ok in {**f2p, **p2p}.items() if not ok]
+                    feedback = "These tests still fail: " + ", ".join(failed)
+                else:
+                    # Hidden test: accept the first issue-guided edit that keeps the
+                    # existing tests green (no regression); the hidden oracle decides.
+                    if _all_pass(p2p):
+                        status = "ok"
+                        break
+                    failed = [n for n, ok in p2p.items() if not ok]
+                    feedback = "Your change broke existing tests: " + ", ".join(failed)
+                git(work, "checkout", "HEAD", "--", target)  # retry from clean base
 
-            # Source-only diff vs base+test_patch (tests are canonical / untouched).
             patch = staged_diff_against_base(work)
             record_evaluation(
                 root, name="resolved",
@@ -202,5 +222,8 @@ def solve(
         finally:
             shutil.rmtree(work, ignore_errors=True)
 
-    return SolveResult(patch, status, steps, cost, status == "ok", reverted, critic_rejections,
+    # In hidden mode the agent cannot confirm a fix (the oracle is hidden), so
+    # resolved_in_loop is only meaningful when the failing test was shown.
+    resolved_in_loop = show_failing_test and status == "ok"
+    return SolveResult(patch, status, steps, cost, resolved_in_loop, reverted, critic_rejections,
                        trace_url, tok_in, tok_out)
