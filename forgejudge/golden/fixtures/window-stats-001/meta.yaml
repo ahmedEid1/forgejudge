@@ -1,0 +1,20 @@
+instance_id: fixture-window-stats-001
+family: make_ci_green
+problem_statement: |
+  `sample_variance([2.0, 4.0])` returns 1.0, but the sample variance of those two
+  values is 2.0. The function consistently reports variances that are too small,
+  and `sample_variance([5.0])` returns 0.0 instead of rejecting an input that has
+  no degrees of freedom. The mean function is correct; only the variance is off.
+source_license: own
+created_at: "2026-05-30"
+env_image: "python:3.12-slim"
+fail_to_pass:
+  - "test_window_stats_bug.py::test_sample_variance_two_values"
+  - "test_window_stats_bug.py::test_sample_variance_three_values"
+  - "test_window_stats_bug.py::test_sample_variance_wide_spread"
+  - "test_window_stats_bug.py::test_sample_variance_single_value_raises"
+pass_to_pass:
+  - "test_window_stats.py::test_mean_basic"
+  - "test_window_stats.py::test_mean_single_value"
+  - "test_window_stats.py::test_mean_with_negatives"
+  - "test_window_stats.py::test_mean_empty_raises"

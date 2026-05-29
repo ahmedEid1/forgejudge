@@ -1,0 +1,24 @@
+instance_id: fixture-duration-001
+family: make_ci_green
+problem_statement: |
+  `parse_duration("1h30m15s")` returns 555 instead of 5415, and
+  `parse_duration("45m")` returns 270 instead of 2700. The seconds-per-unit
+  conversion is off for the hour and minute units: any duration containing
+  hours or minutes comes out far too small, while pure-seconds durations
+  (e.g. "90s") are correct. parse_duration should also raise ValueError on
+  empty or malformed input.
+source_license: own
+created_at: "2026-05-30"
+env_image: "python:3.12-slim"
+fail_to_pass:
+  - "test_duration_bug.py::test_minutes_are_sixty_seconds"
+  - "test_duration_bug.py::test_hours_are_thirty_six_hundred_seconds"
+  - "test_duration_bug.py::test_combined_hms"
+  - "test_duration_bug.py::test_hour_and_minute"
+  - "test_duration_bug.py::test_minute_dominates_over_second"
+pass_to_pass:
+  - "test_duration.py::test_seconds_only"
+  - "test_duration.py::test_zero_seconds"
+  - "test_duration.py::test_multiple_seconds_tokens_sum"
+  - "test_duration.py::test_strips_surrounding_whitespace"
+  - "test_duration.py::test_empty_string_raises"

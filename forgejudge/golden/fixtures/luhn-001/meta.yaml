@@ -1,0 +1,24 @@
+instance_id: fixture-luhn-001
+family: make_ci_green
+problem_statement: |
+  `is_valid` is meant to verify a card / IMEI number with the Luhn checksum,
+  but its verdicts are wrong. Known-good numbers such as "79927398713" and
+  "4532015112830366" are reported invalid, while at least one number that does
+  not satisfy the checksum (e.g. "8301") is reported valid. The weighting of the
+  digits during the checksum does not match the Luhn algorithm.
+source_license: own
+created_at: "2026-05-30"
+env_image: "python:3.12-slim"
+fail_to_pass:
+  - "test_luhn_bug.py::test_accepts_known_valid_number"
+  - "test_luhn_bug.py::test_accepts_valid_card_number"
+  - "test_luhn_bug.py::test_rejects_number_that_only_passes_when_doubling_from_left"
+  - "test_luhn_bug.py::test_subtract_nine_on_doubled_digit"
+  - "test_luhn_bug.py::test_ignores_spaces_in_valid_number"
+pass_to_pass:
+  - "test_luhn.py::test_simple_valid_visa"
+  - "test_luhn.py::test_short_valid"
+  - "test_luhn.py::test_simple_invalid"
+  - "test_luhn.py::test_rejects_non_digits"
+  - "test_luhn.py::test_rejects_too_short"
+  - "test_luhn.py::test_rejects_empty"

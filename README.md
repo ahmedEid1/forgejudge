@@ -13,13 +13,13 @@
 
 </div>
 
-> **Current numbers** (hidden-test = the agent never sees the failing test; $0 free tier; same harness, swap the model; 12 tasks × 3 seeds = 108 runs):
+> **Current numbers** (hidden-test = the agent never sees the failing test; $0 free tier; same harness, swap the model; 18 tasks × 3 seeds = 54 runs/model, 162 total):
 >
 > | Model | pass@1 | pass@3 |
 > |---|---|---|
-> | `gpt-oss-120b` | 83.3% | 91.7% |
-> | `llama-3.3-70b` | 83.3% | 100% |
-> | `llama-3.1-8b` | 41.7% | 66.7% |
+> | `gpt-oss-120b` | 90.7% | 100% |
+> | `llama-3.3-70b` | 88.9% | 94.4% |
+> | `llama-3.1-8b` | 48.1% | 66.7% |
 >
 > The score rises with the better model while the harness stays fixed (model-swap proof), and `pass@3 > pass@1` shows real run-to-run variance — which is exactly why the CI gate is multi-seed. Every run [deep-links its Langfuse trace](https://forgejudge.ahmedhobeishy.tech).
 
@@ -31,7 +31,7 @@ ForgeJudge is the only open-source autonomous software-engineering agent that **
 
 ```
 golden set (Git, canonical) ──▶ agent: localize ─▶ repair ─▶ validate ──▶ unified diff
-   12 intrinsically-verifiable        (BM25)      (LLM router,  (run tests)
+   18 intrinsically-verifiable        (BM25)      (LLM router,  (run tests)
    make-CI-green tasks                            critic, edit-gate)
         │                                              │ every step traced (OTel → Langfuse)
         ▼                                              ▼
@@ -46,7 +46,7 @@ golden set (Git, canonical) ──▶ agent: localize ─▶ repair ─▶ valid
 
 - **Solver** — a single, phase-structured loop (`localize → repair → validate`), *not* a multi-agent swarm: cheapest, most deterministic, most debuggable. BM25 localization, an LLM router over free tiers, a syntax edit-gate, a cheap critic pre-filter, and a cost/step budget with autosubmit.
 - **Harness** — encodes the SWE-bench `RESOLVED_FULL` rule and is **verified equivalent to `swebench.harness.grading`** in CI. Patches are **cheat-resistant**: the canonical test files are restored before grading, so a patch can't neuter the oracle.
-- **Golden set** — 9 purpose-built post-cutoff fixtures + 3 tasks mined from the author's own repos (real commit SHAs, MIT/own license — zero leak/copyleft risk). Each is **mutation-hardened**: a wrong fix to the patched region is caught (7 mutation-hardened at mean score 0.89; 5 inconclusive for regex/string code; **0 weak**).
+- **Golden set** — 15 purpose-built post-cutoff fixtures + 3 tasks mined from the author's own repos (real commit SHAs, MIT/own license — zero leak/copyleft risk). Each is **mutation-hardened**: a wrong fix to the patched region is caught (14 mutation-hardened at mean score 0.93; 4 inconclusive for regex/string code; **0 weak**).
 - **Sandbox / CI / cron** — GitHub Actions on a public repo does triple duty (ephemeral isolated VM sandbox + regression gate + scheduled sweep) at `$0`.
 - **Observability** — OpenTelemetry GenAI spans (`invoke_agent → retrieval / chat / execute_tool`, `gen_ai.usage.*`, a `gen_ai.evaluation.result` pass/fail verdict) exported to Langfuse Cloud; every run is a clickable trace.
 
@@ -57,7 +57,7 @@ git clone https://github.com/ahmedEid1/forgejudge && cd forgejudge
 uv sync                       # Python 3.12, deps via uv
 
 # Run the deterministic harness self-test (no API key, no network):
-uv run python -m forgejudge.harness.runner_actions --patch-source gold   # 12/12 resolved
+uv run python -m forgejudge.harness.runner_actions --patch-source gold   # 18/18 resolved
 
 # Solve a task with a free model (set GROQ_API_KEY) and grade it:
 uv run python - <<'PY'

@@ -3,9 +3,9 @@ name: gate
 # Harness-integrity gate (spec decision #12). On every PR we re-grade the gold
 # patches across shards (deterministic, $0 — no LLM). Because gold grading is
 # DETERMINISTIC, the per-shard rates are a partition of ONE run, NOT noisy
-# per-seed samples — so we pool every shard record and require an EXACT 12/12
-# resolution via `gate --mode exact` (findings #2/#4). Any partial breakage
-# (e.g. 1 of 12 gold tasks stops resolving) fails the build. The stochastic
+# per-seed samples — so we pool every shard record and require that EVERY gold
+# task resolves (rate == 1.0) via `gate --mode exact` (findings #2/#4). Any
+# partial breakage (even one gold task stops resolving) fails the build. The stochastic
 # multi-seed CI gate (regression_gate vs baseline_scores.json) is reserved for
 # the scheduled sweep, where each sample is a genuine per-SEED rerun.
 
@@ -60,7 +60,7 @@ jobs:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           path: artifacts
-      - name: Apply deterministic gold integrity gate (exact 12/12, zero tolerance)
+      - name: Apply deterministic gold integrity gate (exact, all gold tasks, zero tolerance)
         # Pool ALL shard records into one resolution rate and require it == 1.0.
         # The shards partition one deterministic run, so a CI over them is the
         # wrong variance axis (findings #2/#4); --mode exact fails on any miss.

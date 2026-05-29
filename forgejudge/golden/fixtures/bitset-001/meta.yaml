@@ -1,0 +1,31 @@
+instance_id: fixture-bitset-001
+family: make_ci_green
+problem_statement: |
+  The bit utilities in ``bitset.py`` give wrong answers on several inputs.
+
+  * ``clear_bit(0b111, 1)`` returns ``7`` (it leaves the value unchanged or even
+    turns bits on) instead of clearing bit 1 to give ``5``.
+  * ``test_bit(0b1, 0)`` returns ``False`` even though bit 0 is set; in general
+    ``test_bit`` reports the opposite of whether the bit is set.
+  * ``popcount(0b11)`` returns ``1`` instead of ``2`` — it under-counts whenever
+    a value has more than one 1-bit, because the scan skips bits.
+
+  Set/get/clear/count of individual bits should all agree with the obvious
+  binary interpretation for any non-negative integer.
+source_license: own
+created_at: "2026-05-30"
+env_image: "python:3.12-slim"
+fail_to_pass:
+  - "test_bitset_bug.py::test_clear_bit_clears_set_bit"
+  - "test_bitset_bug.py::test_clear_bit_only_touches_target"
+  - "test_bitset_bug.py::test_clear_bit_does_not_affect_neighbor"
+  - "test_bitset_bug.py::test_test_bit_reports_set_bits"
+  - "test_bitset_bug.py::test_test_bit_reports_unset_bits"
+  - "test_bitset_bug.py::test_popcount_counts_adjacent_bits"
+  - "test_bitset_bug.py::test_popcount_all_ones"
+pass_to_pass:
+  - "test_bitset.py::test_set_bit_low"
+  - "test_bitset.py::test_set_bit_higher"
+  - "test_bitset.py::test_set_bit_idempotent"
+  - "test_bitset.py::test_popcount_zero"
+  - "test_bitset.py::test_popcount_single_bit"
