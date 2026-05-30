@@ -1,16 +1,23 @@
 name: sweep
 
-# Scheduled leaderboard refresh: run the agent over the golden set and persist
-# RunRecords to Neon. NOTE: GitHub's `schedule` auto-disables after 60 days idle
-# and runs late; the design prefers a Cloudflare Cron Trigger firing
-# repository_dispatch. This schedule is the fallback.
+# Scheduled, end-to-end leaderboard refresh:
+#   1. sweep EACH model over the golden set (sequential — parallel saturates the
+#      shared Groq free-tier limit; --no-store so a degraded run never touches Neon)
+#   2. quality-gated publish: a model whose sweep degraded (e.g. a free-tier daily
+#      token-limit storm -> mostly status=error) is SKIPPED and keeps its prior
+#      data, so a flaky run can't overwrite good numbers with a rate-limited dip;
+#      healthy models are upserted into Neon and the static JSON snapshot is rebuilt
+#   3. deploy the refreshed dashboard to Cloudflare Pages
+#   4. commit the snapshot back so git matches the live site
+# NOTE: GitHub disables `schedule` after 60 days idle and runs it late; the design
+# prefers a Cloudflare Cron Trigger firing repository_dispatch. This is the fallback.
 
 on:
   workflow_dispatch:
     inputs:
-      model:
-        description: "litellm model id"
-        default: "groq/llama-3.3-70b-versatile"
+      models:
+        description: "comma-separated litellm model ids"
+        default: "groq/openai/gpt-oss-120b,groq/llama-3.3-70b-versatile,groq/llama-3.1-8b-instant"
       seeds:
         description: "comma-separated seeds"
         default: "0,1,2"
@@ -18,7 +25,7 @@ on:
     - cron: "17 4 * * *"
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: sweep
@@ -34,7 +41,7 @@ jobs:
           enable-cache: true
       - run: uv sync
 
-      - name: Run sweep -> Neon
+      - name: Sweep each model -> runs-*.jsonl (sequential, --no-store)
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -43,14 +50,48 @@ jobs:
           LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
           LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
           LANGFUSE_HOST: ${{ secrets.LANGFUSE_HOST }}
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          MODEL: ${{ github.event.inputs.model || 'groq/llama-3.3-70b-versatile' }}
+          MODELS: ${{ github.event.inputs.models || 'groq/openai/gpt-oss-120b,groq/llama-3.3-70b-versatile,groq/llama-3.1-8b-instant' }}
           SEEDS: ${{ github.event.inputs.seeds || '0,1,2' }}
         run: |
-          uv run python -m forgejudge.eval.sweep --model "$MODEL" --seeds "$SEEDS" --out runs.jsonl
+          IFS=',' read -ra MS <<< "$MODELS"
+          i=0
+          for m in "${MS[@]}"; do
+            echo "::group::sweep $m"
+            uv run python -m forgejudge.eval.sweep --model "$m" --seeds "$SEEDS" \
+              --no-store --out "runs-$i.jsonl" \
+              || echo "::warning::sweep for $m failed; it will be gated out at publish"
+            echo "::endgroup::"
+            i=$((i+1))
+          done
+
+      - name: Quality-gated publish -> Neon + dashboard JSON
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          uv run python -m forgejudge.eval.publish --runs 'runs-*.jsonl'
+
+      - name: Deploy refreshed dashboard to Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx -y wrangler@4 pages deploy dashboard/public \
+            --project-name forgejudge --branch main --commit-dirty=true
+
+      - name: Commit refreshed snapshot back to the repo
+        run: |
+          if git diff --quiet -- dashboard/public/data; then
+            echo "no leaderboard change to commit"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add dashboard/public/data
+            git commit -m "chore(sweep): refresh leaderboard snapshot [skip ci]"
+            git push
+          fi
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: sweep-runs
-          path: runs.jsonl
+          path: runs-*.jsonl
           if-no-files-found: warn

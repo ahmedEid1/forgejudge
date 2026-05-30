@@ -197,3 +197,33 @@ def test_publish_verifies_binary_checksum():
     assert "|| true" not in blob, (
         "publish-mcp.yml install must not swallow failures with `|| true` (#16)"
     )
+
+
+# --------------------------------------------------------------------------- #
+# sweep.yml — the auto-publish pipeline (sweep all models -> quality-gated
+# publish -> deploy -> commit). Guards the end-to-end leaderboard refresh.
+# --------------------------------------------------------------------------- #
+
+
+def test_sweep_publishes_and_deploys_end_to_end():
+    wf = _load("sweep.yml")
+    job = wf["jobs"]["sweep"]
+    blob = _steps_text(job)
+    # writes back the refreshed snapshot, so it needs contents: write
+    assert (wf.get("permissions") or {}).get("contents") == "write", (
+        "sweep.yml must grant contents: write to commit the refreshed snapshot"
+    )
+    # sweeps with --no-store so a degraded run cannot poison Neon directly
+    assert "--no-store" in blob, "sweep must use --no-store and publish via the quality gate"
+    # quality-gated publish, dashboard deploy, and commit-back are all present
+    assert "forgejudge.eval.publish" in blob, "sweep must run the quality-gated publish step"
+    assert "pages deploy" in blob, "sweep must deploy the refreshed dashboard to Cloudflare Pages"
+    assert "dashboard/public/data" in blob, "sweep must commit the refreshed leaderboard snapshot back"
+
+
+def test_sweep_covers_multiple_models():
+    """The leaderboard's model-swap story needs every model swept, not just one."""
+    wf = _load("sweep.yml")
+    on = wf.get("on") or wf.get(True)  # PyYAML parses the `on:` key as boolean True
+    default_models = on["workflow_dispatch"]["inputs"]["models"]["default"]
+    assert default_models.count(",") >= 2, "sweep should default to sweeping all leaderboard models"
