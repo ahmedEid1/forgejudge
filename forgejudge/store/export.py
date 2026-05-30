@@ -27,6 +27,23 @@ _RUN_COLS = ["run_id", "task_id", "model", "scaffold_version", "seed", "resolved
              "status", "created_at", "problem_statement", "patch"]
 
 
+def read_calibration(out_dir: str | Path = DEFAULT_OUT) -> dict | None:
+    """Read the judge calibration snapshot if present, else ``None``.
+
+    The canonical ``calibration.json`` (kappa, n, confusion) is written
+    separately by :mod:`forgejudge.eval.calibrate`; this is a read-only reflect
+    so the exporter summary can surface the judge's κ without recomputing it
+    (the live LLM pass is run by the operator, never here).
+    """
+    path = Path(out_dir) / "calibration.json"
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text())
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
 def export_snapshot(out_dir: str | Path = DEFAULT_OUT, *, now: str | None = None) -> dict:
     """Write ``leaderboard.json`` and ``runs.json`` to ``out_dir``; return a summary."""
     out_dir = Path(out_dir)
@@ -44,7 +61,12 @@ def export_snapshot(out_dir: str | Path = DEFAULT_OUT, *, now: str | None = None
         json.dumps({"generated_at": generated_at, "n_tasks": n_tasks, "models": board}, indent=2)
     )
     (out_dir / "runs.json").write_text(json.dumps({"generated_at": generated_at, "runs": runs}, indent=2))
-    return {"models": len(board), "runs": len(runs), "n_tasks": n_tasks, "out": str(out_dir)}
+    # Reflect (do not recompute) the judge calibration, if it has been published.
+    calibration = read_calibration(out_dir)
+    summary = {"models": len(board), "runs": len(runs), "n_tasks": n_tasks, "out": str(out_dir)}
+    if calibration is not None:
+        summary["judge_kappa"] = calibration.get("kappa")
+    return summary
 
 
 def main() -> None:

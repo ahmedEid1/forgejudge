@@ -5,26 +5,37 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ForgeJudge — LLM-as-judge calibration (Cohen's κ)</title>
   <meta name="description" content="The LLM-as-judge is a secondary, qualitative score only. Test execution is always the primary gate. We report Cohen's kappa against a hand-labeled gold set." />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <a class="skip-link" href="#main">Skip to content</a>
   <header class="site"><div class="wrap">
     <span class="brand"><span class="mark">Forge</span>Judge</span>
-    <nav class="top">
+    <nav class="top" aria-label="Primary">
       <a href="index.html">Leaderboard</a>
+      <a href="playground.html">Playground</a>
       <a href="model-swap.html">Model swap</a>
       <a href="methodology.html">Methodology</a>
-      <a href="calibration.html" class="active">Judge κ</a>
+      <a href="calibration.html" aria-current="page">Judge κ</a>
       <a href="https://github.com/ahmedEid1/forgejudge" target="_blank" rel="noopener">GitHub ↗</a>
     </nav>
   </div></header>
 
-  <main class="wrap">
+  <main class="wrap" id="main">
     <section class="hero">
       <h1>LLM-as-judge calibration</h1>
       <p class="lede">Test execution is <b>always</b> the primary, objective gate (<code>PRIMARY_GATE = "test_execution"</code>).
         The LLM-as-judge is a <b>secondary, qualitative</b> score (style / clarity / idiomaticity) for cases with no test
         oracle — never a gate.</p>
+    </section>
+
+    <section aria-labelledby="kappa-heading">
+      <h2 id="kappa-heading">Cohen's κ vs the human gold set</h2>
+      <p class="small muted">Chance-adjusted agreement between the LLM judge and human raters on a discrete 1–5 rubric,
+        binarized to a good/bad verdict (score ≥ 4 is “good”). Raw agreement overstates a judge that mostly says one
+        label; κ corrects for chance.</p>
+      <div id="calibration"><p class="muted">Loading…</p></div>
     </section>
 
     <section>
@@ -35,7 +46,7 @@
         before it is ever shown next to a run.</p>
       <p class="note">MVP status: the judge harness and Cohen's-κ computation ship with a partial seed gold set
         (<code>golden/judge_gold.jsonl</code>). The full ~200-example calibration set is a documented, in-progress item;
-        this page will display the live κ once the set is complete.</p>
+        the figure above is recomputed by <code>python -m forgejudge.eval.calibrate</code> whenever the set grows.</p>
     </section>
 
     <section>
@@ -52,5 +63,90 @@
     ForgeJudge — MIT · <a href="methodology.html">methodology</a> ·
     <a href="impressum.html">Impressum</a> · <a href="privacy.html">Privacy</a>
   </div></footer>
+
+  <script>
+    // Render the judge-calibration snapshot written by
+    // `python -m forgejudge.eval.calibrate` -> data/calibration.json. Mirrors
+    // app.js conventions (no-store fetch, graceful empty state, own-data escape).
+    (function () {
+      const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
+        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+      const pct = (x) => (x == null ? "—" : (x * 100).toFixed(1) + "%");
+      const kfmt = (x) => (x == null ? "—" : Number(x).toFixed(2));
+
+      // Plain-English interpretation band (Landis & Koch).
+      function band(k) {
+        if (k == null) return { label: "—", cls: "muted" };
+        if (k > 0.8) return { label: "almost perfect", cls: "pass" };
+        if (k > 0.6) return { label: "substantial", cls: "pass" };
+        if (k > 0.4) return { label: "moderate", cls: "" };
+        if (k > 0.2) return { label: "fair", cls: "fail" };
+        if (k > 0.0) return { label: "slight", cls: "fail" };
+        return { label: "none / worse than chance", cls: "fail" };
+      }
+
+      async function getJSON(path) {
+        const res = await fetch(path, { cache: "no-store" });
+        if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`);
+        return res.json();
+      }
+
+      function render(el, d) {
+        const c = d.confusion || { tp: 0, fp: 0, fn: 0, tn: 0 };
+        const b = band(d.kappa);
+        const kbadge = d.kappa == null
+          ? ""
+          : ` <span class="badge ${b.cls}">${esc(b.label)}</span>`;
+        const dt = (() => {
+          const date = new Date(d.generated_at);
+          return d.generated_at && !isNaN(date)
+            ? String(d.generated_at).slice(0, 16).replace("T", " ") + " UTC"
+            : "—";
+        })();
+
+        // Confusion matrix: reference (human gold) is ground truth on rows.
+        const cell = (n) => `<td class="num">${Number(n || 0)}</td>`;
+        const matrix = `
+          <table class="board" aria-label="confusion matrix: judge vs human gold">
+            <caption class="sr-only">Confusion matrix of the LLM judge against the human gold verdict (good = score ≥ 4).</caption>
+            <thead><tr>
+              <th scope="col"></th>
+              <th scope="col">judge: good</th>
+              <th scope="col">judge: bad</th>
+            </tr></thead>
+            <tbody>
+              <tr><th scope="row">human: good</th>${cell(c.tp)}${cell(c.fn)}</tr>
+              <tr><th scope="row">human: bad</th>${cell(c.fp)}${cell(c.tn)}</tr>
+            </tbody>
+          </table>`;
+
+        el.innerHTML = `
+          <div class="grid2">
+            <div class="card">
+              <div class="kpi">κ = ${kfmt(d.kappa)}${kbadge}</div>
+              <div class="kpi-label">Cohen's κ — chance-adjusted judge↔human agreement</div>
+            </div>
+            <div class="card">
+              <div class="kpi">${d.n == null ? "—" : Number(d.n)}</div>
+              <div class="kpi-label">labelled pairs · ${pct(d.agreement)} raw agreement</div>
+            </div>
+          </div>
+          <h3>Confusion matrix</h3>
+          ${matrix}
+          <p class="small muted">Model: <code>${esc(d.model || "judge")}</code> · snapshot ${esc(dt)} ·
+            “good” = rubric score ≥ 4. The judge never gates a run; κ is published only to vouch for the
+            secondary score.</p>`;
+      }
+
+      const el = document.getElementById("calibration");
+      if (!el) return;
+      getJSON("data/calibration.json")
+        .then((d) => render(el, d))
+        .catch(() => {
+          el.innerHTML = `<p class="muted">Calibration data not available yet — run
+            <code>python -m forgejudge.eval.calibrate</code> to publish the judge's Cohen's κ.</p>`;
+        });
+    })();
+  </script>
 </body>
 </html>

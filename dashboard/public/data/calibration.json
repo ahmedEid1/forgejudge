@@ -1,0 +1,27 @@
+{
+  "generated_at": "2026-05-30T09:18:51.284774+00:00",
+  "model": "gemini-2.5-flash",
+  "kappa": 1.0,
+  "n": 8,
+  "agreement": 1.0,
+  "confusion": {
+    "tp": 4,
+    "fp": 0,
+    "fn": 0,
+    "tn": 4
+  },
+  "by_label": {
+    "good": {
+      "reference": 4,
+      "judge": 4,
+      "correct": 4,
+      "recall": 1.0
+    },
+    "bad": {
+      "reference": 4,
+      "judge": 4,
+      "correct": 4,
+      "recall": 1.0
+    }
+  }
+}
