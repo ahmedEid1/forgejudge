@@ -59,10 +59,18 @@ def test_manifest_package_is_internally_consistent():
     assert pkgs, "manifest must declare at least one package"
     pkg = pkgs[0]
 
-    # (3) version must match the real package version, not a stale 0.0.1.
+    # (3) the PyPI package the manifest points at must match the real published
+    # package version (pyproject) — never a stale 0.0.1.
     pyver = _pyproject_version()
-    assert pkg["version"] == pyver == manifest["version"], (
-        f"package version {pkg['version']!r} != pyproject {pyver!r}"
+    assert pkg["version"] == pyver, (
+        f"manifest package version {pkg['version']!r} != pyproject {pyver!r}"
+    )
+    # The manifest's OWN version increments independently on every registry
+    # re-publish (the registry rejects a duplicate manifest version), so it is
+    # >= the package version, not necessarily equal.
+    mver = tuple(int(x) for x in manifest["version"].split("."))
+    assert mver >= tuple(int(x) for x in pyver.split(".")), (
+        f"manifest version {manifest['version']!r} should be >= package {pyver!r}"
     )
 
     # (2) declared transport must match what main() actually runs.
