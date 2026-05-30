@@ -29,19 +29,28 @@ ForgeJudge is the only open-source autonomous software-engineering agent that **
 
 ## How it works
 
-```
-golden set (Git, canonical) ──▶ agent: localize ─▶ repair ─▶ validate ──▶ unified diff
-   18 intrinsically-verifiable        (BM25)      (LLM router,  (run tests)
-   make-CI-green tasks                            critic, edit-gate)
-        │                                              │ every step traced (OTel → Langfuse)
-        ▼                                              ▼
-   deterministic harness  ◀── apply test_patch + patch, run F2P/P2P in a sandbox ──┐
-   resolved ⇔ all FAIL_TO_PASS pass ∧ all PASS_TO_PASS stay green                  │
-   (swebench-equivalent on real pass/fail, stricter on skipped oracles; cheat-resistant) │
-        │                                                                          │
-        ▼                                                                          │
-   run store (Neon) ─▶ leaderboard (pass@1/pass@3, $/task, tokens, trace link) ────┘
-   multi-seed CI gate: a PR that lowers the resolution rate fails the build
+```mermaid
+flowchart TD
+    G["Golden set · Git-canonical<br/>18 intrinsically-verifiable, mutation-hardened<br/>make-CI-green tasks"]
+
+    subgraph SOLVER["Single-agent solver"]
+        direction LR
+        L["localize<br/>(BM25)"] --> R["repair<br/>(LLM router · critic · syntax edit-gate)"] --> V["validate<br/>(run tests)"]
+    end
+
+    G --> SOLVER
+    SOLVER --> PATCH["unified diff"]
+    SOLVER -. "every step traced" .-> TRACE["OTel → Langfuse<br/>per-run public trace"]
+
+    PATCH --> H["Deterministic harness, in a sandbox<br/>apply test_patch + candidate patch · run F2P / P2P<br/><b>RESOLVED iff</b> every FAIL_TO_PASS passes AND every PASS_TO_PASS stays green<br/>swebench-equivalent · stricter on skips · cheat-resistant"]
+
+    H --> STORE["Run store<br/>Neon + pgvector"]
+    STORE --> LB["Leaderboard<br/>pass@1 / pass@3 · cost · tokens · trace link"]
+    H --> GATE["Multi-seed CI gate<br/>a PR that lowers the resolution rate fails the build"]
+
+    style G stroke:#3fb950,stroke-width:2px
+    style H stroke:#4cc2ff,stroke-width:2px
+    style GATE stroke:#f0883e,stroke-width:2px
 ```
 
 - **Solver** — a single, phase-structured loop (`localize → repair → validate`), *not* a multi-agent swarm: cheapest, most deterministic, most debuggable. BM25 localization, an LLM router over free tiers, a syntax edit-gate, a cheap critic pre-filter, and a cost/step budget with autosubmit.
@@ -49,6 +58,26 @@ golden set (Git, canonical) ──▶ agent: localize ─▶ repair ─▶ valid
 - **Golden set** — 15 purpose-built post-cutoff fixtures + 3 tasks mined from the author's own repos (real commit SHAs, MIT/own license — zero leak/copyleft risk). Each is **mutation-hardened**: a wrong fix to the patched region is caught (16 mutation-hardened at mean score 0.94; 2 inconclusive for regex/string code; **0 weak**).
 - **Sandbox / CI / cron** — GitHub Actions on a public repo does triple duty (ephemeral isolated VM sandbox + regression gate + scheduled sweep) at `$0`.
 - **Observability** — OpenTelemetry GenAI spans (`invoke_agent → retrieval / chat / execute_tool`, `gen_ai.usage.*`, a `gen_ai.evaluation.result` pass/fail verdict) exported to Langfuse Cloud; every run is a clickable trace.
+
+### Two gates, two jobs
+
+The deterministic **gold-integrity gate** (does the harness itself still work?) is kept separate from the stochastic **regression gate** (did a change make the *agent* meaningfully worse?) — because gold grading is deterministic and must never be averaged with noisy per-seed runs.
+
+```mermaid
+flowchart TD
+    PR["Pull request / commit"] --> GG["Gold-integrity gate<br/>deterministic · $0 · re-grade all gold patches"]
+    GG -->|"any gold task unresolved"| F1["fail — the harness broke"]
+    GG -->|"all gold tasks resolved"| OK1["harness intact"]
+
+    CRON["Scheduled multi-seed sweep"] --> SEEDS["run the agent × N seeds<br/>→ one resolution rate per seed"]
+    SEEDS --> RG["Regression gate<br/>small-sample CI (Student-t / Wilson)"]
+    BASE["baseline_scores.json<br/>per-seed reference"] --> RG
+    RG -->|"candidate CI upper bound &lt; baseline CI lower bound"| F2["❌ fail — real regression"]
+    RG -->|"overlapping · equal · improved"| OK2["✓ no regression"]
+
+    style GG stroke:#4cc2ff,stroke-width:2px
+    style RG stroke:#f0883e,stroke-width:2px
+```
 
 ## Quickstart
 
