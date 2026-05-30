@@ -13,6 +13,10 @@
 
 </div>
 
+<!-- mcp-name: io.github.ahmedEid1/forgejudge -->
+<!-- ^ ownership proof for the MCP registry (validated against this PyPI long-description). -->
+
+
 > **Current numbers** (hidden-test = the agent never sees the failing test; $0 free tier; same harness, swap the model; 18 tasks × 3 seeds = 54 runs/model, 162 total):
 >
 > | Model | pass@1 | pass@3 |
@@ -81,6 +85,8 @@ flowchart TD
 
 ## Quickstart
 
+Prereq: [`uv`](https://docs.astral.sh/uv/) (Python 3.12 is provisioned for you) — `curl -LsSf https://astral.sh/uv/install.sh | sh`.
+
 ```bash
 git clone https://github.com/ahmedEid1/forgejudge && cd forgejudge
 uv sync                       # Python 3.12, deps via uv
@@ -88,7 +94,10 @@ uv sync                       # Python 3.12, deps via uv
 # Run the deterministic harness self-test (no API key, no network):
 uv run python -m forgejudge.harness.runner_actions --patch-source gold   # 18/18 resolved
 
-# Solve a task with a free model (set GROQ_API_KEY) and grade it:
+# Solve a task with a free model and grade it.
+# Needs a (free) Groq key. Either export it, or put it in .env and pass --env-file:
+#   export GROQ_API_KEY=...                     # or
+#   cp .env.example .env && edit GROQ_API_KEY   # then: uv run --env-file .env python - <<'PY'
 uv run python - <<'PY'
 from forgejudge.golden.loader import load_tasks
 from forgejudge.agent.solver import solve
@@ -99,7 +108,36 @@ print(res.status, "→ resolved:", grade(task, res.patch).resolved)
 PY
 ```
 
-Fast tests: `uv run pytest -m "not slow"`. Full golden validation + mutation hardening: `uv run pytest -m slow`. Sweep the leaderboard: `uv run python -m forgejudge.eval.sweep --model groq/llama-3.3-70b-versatile --seeds 0,1,2`.
+Fast tests: `uv run pytest -m "not slow"`. Full golden validation + mutation hardening: `uv run pytest -m slow`. Sweep the leaderboard: `uv run python -m forgejudge.eval.sweep --model groq/llama-3.3-70b-versatile --seeds 0,1,2`. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the full pytest marker map and dev workflow.
+
+## Install
+
+Working on the agent/harness itself? Clone and `uv sync` (above). To consume ForgeJudge as a package:
+
+```bash
+# Library + the `forgejudge` CLI (selftest / mcp / info):
+pip install forgejudge
+forgejudge selftest           # deterministic harness check — 18/18 resolved, no key
+forgejudge mcp                # MCP server over stdio (needs the [mcp] extra)
+
+# Zero-install MCP server (no venv to manage) — for an MCP client config:
+uvx --from "forgejudge[mcp]" forgejudge mcp
+```
+
+Optional extras (installed only when you need them):
+
+| Extra | Pulls in | For |
+|---|---|---|
+| `forgejudge[harness]` | `swebench` | the swebench-equivalence grading check |
+| `forgejudge[mcp]` | `fastmcp` | the MCP server (`forgejudge mcp`) |
+| `forgejudge[playground]` | `fastapi`, `uvicorn`, `httpx` | the guarded live playground API |
+
+```bash
+pip install "forgejudge[mcp]"            # one extra
+pip install "forgejudge[harness,mcp]"    # several
+```
+
+`forgejudge selftest` and `forgejudge info` work with the base install — no extras, no API key, no network.
 
 ## Six objections, pre-empted
 

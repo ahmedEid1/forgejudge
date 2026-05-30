@@ -18,6 +18,10 @@ from forgejudge.golden.loader import load_tasks
 from forgejudge.harness.grade import grade
 from forgejudge.types import RunRecord
 
+# Absolute default so the bundled dataset is found regardless of cwd (e.g. when the
+# installed package's `forgejudge selftest` runs from an arbitrary directory).
+DEFAULT_DATASET = Path(__file__).resolve().parent.parent.parent / "golden" / "dataset.jsonl"
+
 
 def select_shard(tasks: list, shard: int, num_shards: int) -> list:
     """Round-robin partition (balances task cost across shards)."""
@@ -79,7 +83,7 @@ def _aggregate(artifacts_dir: str | Path, out: str | Path) -> tuple[int, int, bo
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="ForgeJudge sandbox grade executor")
-    ap.add_argument("--dataset", default="golden/dataset.jsonl")
+    ap.add_argument("--dataset", default=str(DEFAULT_DATASET))
     ap.add_argument("--patch-source", choices=["gold", "empty"], default="gold")
     ap.add_argument("--shard", type=int, default=0)
     ap.add_argument("--num-shards", type=int, default=1)

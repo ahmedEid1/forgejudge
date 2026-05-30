@@ -7,7 +7,7 @@
     "url": "https://github.com/ahmedEid1/forgejudge",
     "source": "github"
   },
-  "websiteUrl": "https://forgejudge.pages.dev",
+  "websiteUrl": "https://forgejudge.ahmedhobeishy.tech",
   "packages": [
     {
       "registryType": "pypi",
@@ -15,7 +15,7 @@
       "version": "0.1.0",
       "runtimeHint": "uvx",
       "runtimeArguments": [
-        { "type": "named", "name": "--from", "value": "forgejudge==0.1.0" },
+        { "type": "named", "name": "--from", "value": "forgejudge[mcp]==0.1.0" },
         { "type": "positional", "value": "python" },
         { "type": "positional", "value": "-m" },
         { "type": "positional", "value": "forgejudge.mcp.server" }
