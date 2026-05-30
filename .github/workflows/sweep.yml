@@ -9,8 +9,9 @@ name: sweep
 #      healthy models are upserted into Neon and the static JSON snapshot is rebuilt
 #   3. deploy the refreshed dashboard to Cloudflare Pages
 #   4. commit the snapshot back so git matches the live site
-# NOTE: GitHub disables `schedule` after 60 days idle and runs it late; the design
-# prefers a Cloudflare Cron Trigger firing repository_dispatch. This is the fallback.
+# NOTE: this `schedule` cron is the active trigger (GitHub disables it after 60 days
+# of repo inactivity and may run it late). A Cloudflare Cron Trigger firing
+# repository_dispatch would be a more punctual alternative — not currently wired.
 
 on:
   workflow_dispatch:

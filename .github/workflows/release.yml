@@ -1,0 +1,61 @@
+name: release
+
+# Build + publish the forgejudge package to PyPI on a version tag (and on demand).
+# Closes the "package never published / placeholder on PyPI" gap.
+#
+# A broken build must NEVER reach PyPI (a published version is immutable and can
+# never be re-uploaded), so the publish is gated on a SMOKE step that installs
+# the freshly built wheel into a CLEAN venv (no repo on sys.path) and exercises
+# the two public entry points users hit first: the `forgejudge` console script
+# (`--version`) and the MCP server module import. The smoke install pulls the
+# [mcp] extra because `forgejudge.mcp.server` imports fastmcp; without the extra
+# that import legitimately fails and would mask a real packaging break.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: build → smoke → publish to PyPI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+        with:
+          enable-cache: true
+
+      - name: Build sdist + wheel
+        run: uv build
+
+      - name: Smoke-test the built wheel in a clean venv (gate the publish)
+        # Install ONLY the built wheel (no `uv sync`, no repo on sys.path) so we
+        # exercise exactly what a user would `pip install`. A failure here reds
+        # the job BEFORE publish, so a broken build can never reach immutable PyPI.
+        run: |
+          set -euo pipefail
+          WHEEL="$(ls dist/forgejudge-*.whl)"
+          echo "smoke-testing ${WHEEL}"
+          uv venv /tmp/smoke
+          # [mcp] extra so `import forgejudge.mcp.server` (which imports fastmcp)
+          # resolves; the console script comes from the wheel's [project.scripts].
+          uv pip install --python /tmp/smoke "${WHEEL}[mcp]"
+          /tmp/smoke/bin/forgejudge --version
+          /tmp/smoke/bin/python -c "import forgejudge.mcp.server"
+
+      - name: Publish to PyPI
+        env:
+          # `uv publish` reads UV_PUBLISH_TOKEN; PYPI_API_TOKEN is the repo secret
+          # (a project-scoped PyPI API token, value starts with "pypi-").
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+        run: uv publish

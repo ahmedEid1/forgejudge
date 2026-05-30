@@ -1,0 +1,97 @@
+name: regression-gate
+
+# The STOCHASTIC multi-seed regression gate — the headline wedge: block a model
+# swap / scaffold change only when it is STATISTICALLY (not merely noisily) worse
+# than the committed baseline. It runs the candidate over N independent SEEDS,
+# turns the per-seed resolution rates into a small-sample CI, and fails IFF the
+# candidate's CI upper bound sits strictly below the baseline's CI lower bound
+# (forgejudge.eval.gate --mode seed → regression_gate / mean_ci — NOT the exact
+# gold gate, which guards harness integrity on a different variance axis).
+#
+# Why ON-DEMAND, not every PR: each seed is a full agent run over the golden set
+# against a real (free-tier) LLM. Doing that across N seeds on EVERY PR would
+# burn the shared free-tier token budget (and minutes) on docs/typo PRs and stay
+# well past a $0 footprint — so the deterministic, $0 gold gate (gate.yml) runs on
+# every PR, and this stochastic gate is reachable on demand: trigger it manually
+# (workflow_dispatch with model + seeds) or by adding the `full-eval` label to a PR.
+
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: "candidate litellm model id"
+        default: "groq/openai/gpt-oss-120b"
+      seeds:
+        description: "comma-separated seeds (>= 2 for a variance estimate)"
+        default: "0,1,2"
+  pull_request:
+    types: [labeled, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: regression-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  regression-gate:
+    name: stochastic multi-seed regression gate
+    runs-on: ubuntu-latest
+    # On PRs, run ONLY when the `full-eval` label is present (skip every other
+    # PR event); manual dispatches always run.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.pull_request.labels.*.name, 'full-eval')
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+        with:
+          enable-cache: true
+
+      - run: uv sync
+
+      - name: Sweep candidate over each seed → one file per seed (--no-store)
+        # Event inputs flow through env (never interpolated into the shell). Each
+        # seed is swept into its OWN file so `scores_from_run_artifacts` reads one
+        # genuine per-SEED resolution rate per file — independent reruns of the
+        # SAME task set, the variance axis regression_gate requires (NOT shards of
+        # one run). --no-store so a candidate eval never touches the leaderboard DB.
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
+          LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
+          LANGFUSE_HOST: ${{ secrets.LANGFUSE_HOST }}
+          MODEL: ${{ github.event.inputs.model || 'groq/openai/gpt-oss-120b' }}
+          SEEDS: ${{ github.event.inputs.seeds || '0,1,2' }}
+        run: |
+          set -euo pipefail
+          mkdir -p candidate-runs
+          IFS=',' read -ra SS <<< "$SEEDS"
+          for s in "${SS[@]}"; do
+            echo "::group::sweep $MODEL seed $s"
+            uv run python -m forgejudge.eval.sweep \
+              --model "$MODEL" --seeds "$s" \
+              --no-store --out "candidate-runs/seed-${s}.jsonl"
+            echo "::endgroup::"
+          done
+
+      - name: Stochastic regression gate vs eval/baseline_scores.json
+        # --mode seed → regression_gate / mean_ci: per-seed CI vs the committed
+        # multi-seed baseline; exits non-zero (reds the job) on a real regression.
+        run: |
+          uv run python -m forgejudge.eval.gate \
+            --mode seed \
+            --baseline eval/baseline_scores.json \
+            --candidate-runs candidate-runs
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: regression-gate-candidate-runs
+          path: candidate-runs/*.jsonl
+          if-no-files-found: warn

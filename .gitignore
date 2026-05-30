@@ -49,3 +49,7 @@ phoenix_data/
 # sweep / self-test run artifacts
 runs.jsonl
 runs-shard-*.jsonl
+
+# wrangler local cache (contains account_id) + build artifacts
+.wrangler/
+dist/
