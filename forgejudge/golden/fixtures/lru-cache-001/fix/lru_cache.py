@@ -15,7 +15,7 @@ class LRUCache:
         if capacity <= 0:
             raise ValueError("capacity must be positive")
         self.capacity = capacity
-        self._store: "OrderedDict[object, object]" = OrderedDict()
+        self._store: OrderedDict[object, object] = OrderedDict()
 
     def get(self, key, default=None):
         if key not in self._store:

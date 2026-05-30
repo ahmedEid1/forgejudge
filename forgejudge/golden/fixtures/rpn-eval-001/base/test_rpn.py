@@ -1,5 +1,4 @@
 import pytest
-
 from rpn import evaluate
 
 
@@ -13,6 +12,16 @@ def test_addition():
 
 def test_multiplication():
     assert evaluate("6 7 *") == 42.0
+
+
+def test_subtraction():
+    assert evaluate("5 3 -") == 2.0
+
+
+def test_exact_division():
+    # 8 / 2 == 4.0, and floor division also gives 4 here, so this stays green
+    # regardless of which division the bug uses.
+    assert evaluate("8 2 /") == 4.0
 
 
 def test_chained_commutative():

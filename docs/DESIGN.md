@@ -401,7 +401,7 @@ cannot say:
 - **`weak`** — mutants survived above the threshold. This is the failure mode
   that gets a task rejected.
 
-Current golden set: **14 mutation-hardened (mean score 0.93), 4 inconclusive
+Current golden set: **16 mutation-hardened (mean score 0.94), 2 inconclusive
 (regex/string code with no mutable operators), 0 weak** — the same figures shown
 on the public [methodology page](https://forgejudge.ahmedhobeishy.tech/methodology),
 reproducible via `uv run python -m forgejudge.golden.harden`.
@@ -652,7 +652,7 @@ the canary that catches a broken grader before it can mislabel an agent run.
 ---
 
 *Numbers in this document — 18 tasks, 162 runs, pass@1 90.7% / 88.9% / 48.1%,
-mutation hardening 14 hardened (mean 0.93) / 4 inconclusive / 0 weak, gold
+mutation hardening 16 hardened (mean 0.94) / 2 inconclusive / 0 weak, gold
 self-test 18/18 — are the live values from `golden/dataset.jsonl`,
 `dashboard/public/data/leaderboard.json`, and the mutation/self-test runs as of
 this writing.*

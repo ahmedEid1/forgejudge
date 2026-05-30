@@ -24,8 +24,8 @@ def evaluate(expr: str) -> float:
         else:
             try:
                 stack.append(float(tok))
-            except ValueError:
-                raise ValueError(f"invalid token: {tok!r}")
+            except ValueError as err:
+                raise ValueError(f"invalid token: {tok!r}") from err
     if len(stack) != 1:
         raise ValueError("malformed expression")
     return stack[0]

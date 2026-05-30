@@ -12,7 +12,7 @@ def evaluate(expr: str) -> float:
         "+": lambda a, b: a + b,
         "-": lambda a, b: a - b,
         "*": lambda a, b: a * b,
-        "/": lambda a, b: a / b,
+        "/": lambda a, b: a // b,
     }
     for tok in expr.split():
         if tok in ops:
@@ -20,12 +20,12 @@ def evaluate(expr: str) -> float:
                 raise ValueError(f"not enough operands for {tok!r}")
             b = stack.pop()
             a = stack.pop()
-            stack.append(ops[tok](b, a))
+            stack.append(ops[tok](a, b))
         else:
             try:
                 stack.append(float(tok))
-            except ValueError:
-                raise ValueError(f"invalid token: {tok!r}")
+            except ValueError as err:
+                raise ValueError(f"invalid token: {tok!r}") from err
     if len(stack) != 1:
         raise ValueError("malformed expression")
     return stack[0]
