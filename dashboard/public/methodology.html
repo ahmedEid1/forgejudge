@@ -5,21 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ForgeJudge — methodology & decontamination</title>
   <meta name="description" content="How ForgeJudge resists contamination and weak tests: post-cutoff own-source tasks, mutation hardening, cheat-resistant grading, swebench-equivalent scoring, multi-seed gating." />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <a class="skip-link" href="#main">Skip to content</a>
   <header class="site"><div class="wrap">
     <span class="brand"><span class="mark">Forge</span>Judge</span>
-    <nav class="top">
+    <nav class="top" aria-label="Primary">
       <a href="index.html">Leaderboard</a>
+      <a href="playground.html">Playground</a>
       <a href="model-swap.html">Model swap</a>
-      <a href="methodology.html" class="active">Methodology</a>
+      <a href="methodology.html" aria-current="page">Methodology</a>
       <a href="calibration.html">Judge κ</a>
       <a href="https://github.com/ahmedEid1/forgejudge" target="_blank" rel="noopener">GitHub ↗</a>
     </nav>
   </div></header>
 
-  <main class="wrap">
+  <main class="wrap" id="main">
     <section class="hero">
       <h1>Methodology &amp; decontamination</h1>
       <p class="lede">SWE-bench Verified is now widely held to be contaminated — OpenAI
@@ -73,6 +76,11 @@
       <p>temperature=0 does <a href="https://arxiv.org/pdf/2602.07150" target="_blank" rel="noopener">not guarantee determinism</a>
         (pass@1 varies 2–6pp). The scorer is fully deterministic; the regression gate is <b>multi-seed</b> — a change fails the
         build only when the candidate's CI upper bound is below the baseline's CI lower bound, so flaky single runs don't block merges.</p>
+      <p class="note"><b>Metric definitions.</b>
+        <code>pass@1</code> is the <b>expected single-sample resolve rate</b> — the mean resolve rate across the k seeds, i.e.
+        the probability one fresh attempt resolves the task.
+        <code>pass@k</code> is the fraction of tasks where <b>any</b> of the k seeds resolved. Because runs are non-deterministic,
+        <code>pass@k ≥ pass@1</code>, and the gap is exactly the run-to-run variance the multi-seed gate is built to absorb.</p>
     </section>
 
     <section>

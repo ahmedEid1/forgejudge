@@ -57,7 +57,7 @@ async function renderLeaderboard(el) {
 
   el.innerHTML = `
     <table class="board" aria-label="leaderboard">
-      <caption style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap">Model leaderboard: resolve rates, per-task cost, tokens and latency.</caption>
+      <caption class="sr-only">Model leaderboard: resolve rates, per-task cost, tokens and latency.</caption>
       <thead><tr>
         <th scope="col">Model</th><th scope="col">pass@1</th><th scope="col">${passKLabel}</th>
         <th scope="col">$/task</th><th scope="col">tokens/task</th><th scope="col">wall/task</th>
@@ -90,7 +90,7 @@ async function renderRuns(el) {
     </tr>`; }).join("");
   el.innerHTML = `
     <table class="board" aria-label="runs">
-      <caption style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap">Per-run results: each task attempt, result, tests passed, tokens, latency and trace.</caption>
+      <caption class="sr-only">Per-run results: each task attempt, result, tests passed, tokens, latency and trace.</caption>
       <thead><tr><th scope="col">Task</th><th scope="col">Model</th><th scope="col">Result</th>
         <th scope="col">F2P</th><th scope="col">P2P</th><th scope="col">tokens</th>
         <th scope="col">wall</th><th scope="col">trace</th></tr></thead>

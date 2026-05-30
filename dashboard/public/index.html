@@ -17,13 +17,15 @@
   <meta name="twitter:title" content="ForgeJudge — leaderboard + CI gate for autonomous coding agents" />
   <meta name="twitter:description" content="Execution-as-judge, public traces, multi-seed regression gate — on a $0 stack." />
   <meta name="twitter:image" content="https://forgejudge.ahmedhobeishy.tech/og.png" />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <a class="skip-link" href="#main">Skip to content</a>
   <header class="site"><div class="wrap">
     <span class="brand"><span class="mark">Forge</span>Judge</span>
-    <nav class="top">
-      <a href="index.html" class="active">Leaderboard</a>
+    <nav class="top" aria-label="Primary">
+      <a href="index.html" aria-current="page">Leaderboard</a>
       <a href="playground.html">Playground</a>
       <a href="model-swap.html">Model swap</a>
       <a href="methodology.html">Methodology</a>
@@ -32,7 +34,7 @@
     </nav>
   </div></header>
 
-  <main class="wrap">
+  <main class="wrap" id="main">
     <section class="hero">
       <h1>Execution-as-judge for autonomous coding agents.</h1>
       <p class="lede">Every patch runs in a sandbox, every run has a public trace, every regression fails
@@ -49,6 +51,10 @@
 
     <section>
       <h2>Leaderboard</h2>
+      <ul class="defs" aria-label="Metric definitions">
+        <li><b>pass@1</b> — expected single-sample resolve rate (mean over seeds).</li>
+        <li><b>pass@k</b> — fraction of tasks where <em>any</em> of the k seeds resolved.</li>
+      </ul>
       <div id="leaderboard"><p class="muted">Loading…</p></div>
     </section>
 

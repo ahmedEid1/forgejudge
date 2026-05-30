@@ -1,0 +1,30 @@
+# Cloudflare Pages headers — security + caching for a $0 static site.
+# Docs: https://developers.cloudflare.com/pages/configuration/headers/
+
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), interest-cohort=()
+  # CSP for a self-hosted static dashboard:
+  #   default/script/connect/img/font from self only; the dashboard fetches its own
+  #   data/*.json (connect-src 'self'). 'unsafe-inline' is required because app.js sets
+  #   inline style="width:Npx" on the bars and playground.html ships an inline <style>
+  #   and inline <script>. No third-party scripts or styles are loaded. frame-ancestors
+  #   'none' mirrors X-Frame-Options for modern browsers.
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'
+
+# Always revalidate the leaderboard/run snapshots so a fresh sweep shows up immediately
+# (matches the app.js fetch(..., { cache: "no-store" })).
+/data/*
+  Cache-Control: no-cache, must-revalidate
+
+# Long-cache immutable-ish static assets.
+/styles.css
+  Cache-Control: public, max-age=86400
+/app.js
+  Cache-Control: public, max-age=86400
+/favicon.svg
+  Cache-Control: public, max-age=604800
+/og.png
+  Cache-Control: public, max-age=604800

@@ -5,21 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ForgeJudge — model-swap comparison</title>
   <meta name="description" content="Same harness, swap the model: the resolution rate rises with a more capable model. Proof that the harness measures the model, not a tuned scaffold." />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <a class="skip-link" href="#main">Skip to content</a>
   <header class="site"><div class="wrap">
     <span class="brand"><span class="mark">Forge</span>Judge</span>
-    <nav class="top">
+    <nav class="top" aria-label="Primary">
       <a href="index.html">Leaderboard</a>
-      <a href="model-swap.html" class="active">Model swap</a>
+      <a href="playground.html">Playground</a>
+      <a href="model-swap.html" aria-current="page">Model swap</a>
       <a href="methodology.html">Methodology</a>
       <a href="calibration.html">Judge κ</a>
       <a href="https://github.com/ahmedEid1/forgejudge" target="_blank" rel="noopener">GitHub ↗</a>
     </nav>
   </div></header>
 
-  <main class="wrap">
+  <main class="wrap" id="main">
     <section class="hero">
       <h1>Model swap: the harness is the deliverable</h1>
       <p class="lede">We do <b>not</b> chase a SOTA resolution rate. To show the harness measures real capability — not a

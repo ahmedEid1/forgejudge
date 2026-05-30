@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ForgeJudge — replay playground</title>
   <meta name="description" content="Step through a real recorded agent solve: issue → patch → deterministic test verdict → public trace. Replay-first: no live model call." />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="styles.css" />
   <style>
     select { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; font-family: var(--mono); font-size: 13px; }
@@ -17,17 +18,20 @@
   </style>
 </head>
 <body>
+  <a class="skip-link" href="#main">Skip to content</a>
   <header class="site"><div class="wrap">
     <span class="brand"><span class="mark">Forge</span>Judge</span>
-    <nav class="top">
+    <nav class="top" aria-label="Primary">
       <a href="index.html">Leaderboard</a>
-      <a href="playground.html" class="active">Playground</a>
+      <a href="playground.html" aria-current="page">Playground</a>
+      <a href="model-swap.html">Model swap</a>
       <a href="methodology.html">Methodology</a>
+      <a href="calibration.html">Judge κ</a>
       <a href="https://github.com/ahmedEid1/forgejudge" target="_blank" rel="noopener">GitHub ↗</a>
     </nav>
   </div></header>
 
-  <main class="wrap">
+  <main class="wrap" id="main">
     <section class="hero">
       <h1>Replay playground</h1>
       <p class="lede">Step through a <b>real recorded</b> agent solve — issue → localized patch → deterministic

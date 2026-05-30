@@ -27,6 +27,20 @@ body {
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
+/* Visually-hidden until focused: skip-to-content link for keyboard/AT users. */
+.skip-link {
+  position: absolute; left: 8px; top: -48px; z-index: 100;
+  background: var(--accent); color: #04121c; font-weight: 600; font-size: 14px;
+  padding: 8px 14px; border-radius: 0 0 8px 8px; transition: top 0.15s ease;
+}
+.skip-link:focus { top: 0; text-decoration: none; outline: 2px solid var(--text); }
+
+/* Reusable visually-hidden helper (table captions, etc.). */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
 .wrap { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
 
 header.site {
@@ -38,7 +52,20 @@ header.site .wrap { display: flex; align-items: center; gap: 24px; padding: 16px
 .brand .mark { color: var(--accent); }
 nav.top { display: flex; gap: 18px; flex-wrap: wrap; margin-left: auto; }
 nav.top a { color: var(--muted); font-size: 14px; }
-nav.top a:hover, nav.top a.active { color: var(--text); text-decoration: none; }
+nav.top a:hover, nav.top a.active,
+nav.top a[aria-current="page"] { color: var(--text); text-decoration: none; }
+nav.top a[aria-current="page"] { border-bottom: 2px solid var(--accent); padding-bottom: 2px; }
+
+/* A focus ring everywhere for keyboard users (a11y). */
+a:focus-visible, select:focus-visible, .skip-link:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px;
+}
+
+/* Inline term definition (e.g. pass@1 / pass@k) — dotted underline + help cursor. */
+dfn, abbr[title] { font-style: normal; cursor: help; text-decoration: underline dotted var(--muted); text-underline-offset: 3px; }
+.defs { display: flex; gap: 18px; flex-wrap: wrap; margin: 0 0 14px; padding: 0; list-style: none; }
+.defs li { color: var(--muted); font-size: 13px; }
+.defs b { color: var(--text); font-family: var(--mono); }
 
 .hero { padding: 48px 0 24px; }
 .hero h1 { font-size: 30px; line-height: 1.25; margin: 0 0 12px; letter-spacing: -0.02em; }
