@@ -59,7 +59,11 @@
         <li>The candidate patch may change <b>source only</b>; every test file is restored to its canonical version before grading,
           so a patch cannot neuter or weaken the oracle to fake a resolution.</li>
         <li>Our verdict is <b>verified equivalent</b> to the official <code>swebench.harness.grading.get_resolution_status</code>
-          in CI on every commit.</li>
+          in CI on every commit — for real PASS/FAIL/ERROR/XFAIL outcomes.</li>
+        <li>And it is <b>deliberately stricter on a skipped oracle</b>: swebench 4.1.0 rates a <code>SKIPPED</code> FAIL_TO_PASS
+          as <code>RESOLVED_FULL</code> (a skip is neither success nor failure), so a patch that makes the oracle <em>skip</em>
+          rather than run would grade as resolved. ForgeJudge counts a skip as <b>not-passed</b>, closing that cheat vector
+          (pinned by a CI test against real swebench).</li>
         <li>Patches run in ephemeral, isolated GitHub Actions VMs — the sandbox boundary — at $0.</li>
       </ul>
     </section>

@@ -37,7 +37,7 @@ golden set (Git, canonical) ──▶ agent: localize ─▶ repair ─▶ valid
         ▼                                              ▼
    deterministic harness  ◀── apply test_patch + patch, run F2P/P2P in a sandbox ──┐
    resolved ⇔ all FAIL_TO_PASS pass ∧ all PASS_TO_PASS stay green                  │
-   (verified equivalent to the official swebench grading; cheat-resistant)         │
+   (swebench-equivalent on real pass/fail, stricter on skipped oracles; cheat-resistant) │
         │                                                                          │
         ▼                                                                          │
    run store (Neon) ─▶ leaderboard (pass@1/pass@3, $/task, tokens, trace link) ────┘
@@ -45,7 +45,7 @@ golden set (Git, canonical) ──▶ agent: localize ─▶ repair ─▶ valid
 ```
 
 - **Solver** — a single, phase-structured loop (`localize → repair → validate`), *not* a multi-agent swarm: cheapest, most deterministic, most debuggable. BM25 localization, an LLM router over free tiers, a syntax edit-gate, a cheap critic pre-filter, and a cost/step budget with autosubmit.
-- **Harness** — encodes the SWE-bench `RESOLVED_FULL` rule and is **verified equivalent to `swebench.harness.grading`** in CI. Patches are **cheat-resistant**: the canonical test files are restored before grading, so a patch can't neuter the oracle.
+- **Harness** — encodes the SWE-bench `RESOLVED_FULL` rule and is **verified equivalent to `swebench.harness.grading`** on real PASS/FAIL/ERROR/XFAIL outcomes in CI — and *deliberately stricter* on a **skipped** `FAIL_TO_PASS`: swebench 4.1.0 rates a skipped oracle test `RESOLVED_FULL` (a skip is neither success nor failure), so a patch that makes the oracle *skip* rather than run grades as resolved. ForgeJudge counts a skip as not-passed, closing that cheat vector. Patches are also **cheat-resistant**: the canonical test files are restored before grading, so a patch can't neuter the oracle.
 - **Golden set** — 15 purpose-built post-cutoff fixtures + 3 tasks mined from the author's own repos (real commit SHAs, MIT/own license — zero leak/copyleft risk). Each is **mutation-hardened**: a wrong fix to the patched region is caught (14 mutation-hardened at mean score 0.93; 4 inconclusive for regex/string code; **0 weak**).
 - **Sandbox / CI / cron** — GitHub Actions on a public repo does triple duty (ephemeral isolated VM sandbox + regression gate + scheduled sweep) at `$0`.
 - **Observability** — OpenTelemetry GenAI spans (`invoke_agent → retrieval / chat / execute_tool`, `gen_ai.usage.*`, a `gen_ai.evaluation.result` pass/fail verdict) exported to Langfuse Cloud; every run is a clickable trace.
