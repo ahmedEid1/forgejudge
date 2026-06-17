@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-16T10:05:26.340434+00:00",
+  "generated_at": "2026-06-17T09:40:03.305005+00:00",
   "n_tasks": 18,
   "models": [
     {
@@ -8,11 +8,11 @@
       "n_tasks": 18,
       "n_runs": 54,
       "n_seeds": 3,
-      "pass_at_1": 0.9629629629629629,
+      "pass_at_1": 0.9629629629629631,
       "pass_at_k": 1.0,
       "mean_cost_usd": 0.0,
-      "mean_tokens": 3329.222222222222,
-      "mean_wall_s": 31.374499999999998
+      "mean_tokens": 3484.1111111111113,
+      "mean_wall_s": 29.63472222222222
     },
     {
       "model": "groq/openai/gpt-oss-120b",
@@ -20,11 +20,11 @@
       "n_tasks": 18,
       "n_runs": 54,
       "n_seeds": 3,
-      "pass_at_1": 0.9629629629629629,
+      "pass_at_1": 0.9259259259259258,
       "pass_at_k": 1.0,
       "mean_cost_usd": 0.0,
-      "mean_tokens": 3860.5555555555557,
-      "mean_wall_s": 33.191722222222225
+      "mean_tokens": 3701.0,
+      "mean_wall_s": 31.078777777777784
     },
     {
       "model": "groq/llama-3.1-8b-instant",
@@ -32,11 +32,11 @@
       "n_tasks": 18,
       "n_runs": 54,
       "n_seeds": 3,
-      "pass_at_1": 0.537037037037037,
+      "pass_at_1": 0.574074074074074,
       "pass_at_k": 0.6111111111111112,
       "mean_cost_usd": 0.0,
-      "mean_tokens": 3516.277777777778,
-      "mean_wall_s": 33.587555555555554
+      "mean_tokens": 3140.222222222222,
+      "mean_wall_s": 30.147777777777776
     }
   ]
 }
