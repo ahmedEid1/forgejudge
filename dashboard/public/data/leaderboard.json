@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-25T08:22:54.275512+00:00",
+  "generated_at": "2026-06-26T08:31:33.919198+00:00",
   "n_tasks": 18,
   "models": [
     {
@@ -9,10 +9,10 @@
       "n_runs": 54,
       "n_seeds": 3,
       "pass_at_1": 0.9259259259259258,
-      "pass_at_k": 0.9444444444444444,
+      "pass_at_k": 1.0,
       "mean_cost_usd": 0.0,
-      "mean_tokens": 3854.222222222222,
-      "mean_wall_s": 31.64638888888889
+      "mean_tokens": 3760.0,
+      "mean_wall_s": 32.19455555555556
     },
     {
       "model": "groq/llama-3.3-70b-versatile",
@@ -20,11 +20,11 @@
       "n_tasks": 18,
       "n_runs": 54,
       "n_seeds": 3,
-      "pass_at_1": 0.9074074074074073,
-      "pass_at_k": 1.0,
+      "pass_at_1": 0.8888888888888888,
+      "pass_at_k": 0.9444444444444444,
       "mean_cost_usd": 0.0,
-      "mean_tokens": 3490.6666666666665,
-      "mean_wall_s": 29.58538888888889
+      "mean_tokens": 3483.6111111111113,
+      "mean_wall_s": 30.720277777777774
     },
     {
       "model": "groq/llama-3.1-8b-instant",
@@ -32,11 +32,11 @@
       "n_tasks": 18,
       "n_runs": 54,
       "n_seeds": 3,
-      "pass_at_1": 0.4999999999999999,
-      "pass_at_k": 0.6111111111111112,
+      "pass_at_1": 0.5185185185185185,
+      "pass_at_k": 0.6666666666666666,
       "mean_cost_usd": 0.0,
-      "mean_tokens": 3162.5555555555557,
-      "mean_wall_s": 30.085777777777782
+      "mean_tokens": 3045.722222222222,
+      "mean_wall_s": 30.82561111111111
     }
   ]
 }
