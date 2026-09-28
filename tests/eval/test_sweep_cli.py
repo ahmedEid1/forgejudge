@@ -47,6 +47,7 @@ class _FakeSolve:
     cost_usd = 0.0
     trace_url = ""
     status = "ok"
+    error = ""
 
 
 def _make_task(instance_id="t1"):
@@ -153,6 +154,21 @@ def test_run_sweep_no_store_does_not_persist(monkeypatch):
     assert res.resolution_rate == 0.0
 
 
+def test_run_sweep_collects_the_error_of_each_errored_run(monkeypatch):
+    class _Errored(_FakeSolve):
+        patch = ""
+        status = "error"
+        error = "RuntimeError: model_not_found"
+
+    solves = iter([_Errored(), _FakeSolve()])
+    monkeypatch.setattr(sweep, "solve", lambda task, **kw: next(solves))
+    monkeypatch.setattr(sweep, "grade", lambda task, patch, **kw: _real_grade(False))
+
+    res = run_sweep("m", seeds=[0, 1], tasks=[_make_task("x")], now="2026-05-29T00:00:00Z")
+    assert [r.status for r in res.records] == ["error", "ok"]
+    assert res.errors == ["RuntimeError: model_not_found"]
+
+
 # --------------------------------------------------------------------------
 # main() / CLI -- argparse, seed parsing, no-store print, store path, --out
 # --------------------------------------------------------------------------
@@ -173,22 +189,23 @@ def _patch_main_side_effects(monkeypatch):
 class _RecordingResult:
     """Fake SweepResult returned by the faked run_sweep."""
 
-    def __init__(self, records, rate):
+    def __init__(self, records, rate, errors=()):
         self.records = records
         self._rate = rate
+        self.errors = list(errors)
 
     @property
     def resolution_rate(self):
         return self._rate
 
 
-def _fake_run_sweep_factory(calls, *, records=None, rate=0.75):
+def _fake_run_sweep_factory(calls, *, records=None, rate=0.75, errors=()):
     recs = records if records is not None else ["r0", "r1"]
 
     def fake_run_sweep(model, seeds, *, budget_usd, max_steps, store_conn):
         calls.append({"model": model, "seeds": seeds, "budget_usd": budget_usd,
                       "max_steps": max_steps, "store_conn": store_conn})
-        return _RecordingResult(recs, rate)
+        return _RecordingResult(recs, rate, errors)
 
     return fake_run_sweep
 
@@ -219,6 +236,25 @@ def test_main_no_store_parses_seeds_and_prints_rate(monkeypatch, capsys):
     assert "seeds=[0, 2, 5]" in out
     assert "resolution_rate=0.500" in out
     assert "over 2 runs" in out
+    assert "errored" not in out  # no error summary for a clean sweep
+
+
+def test_main_prints_the_most_common_error_causes(monkeypatch, capsys):
+    _patch_main_side_effects(monkeypatch)
+    errors = ["NotFoundError: model_not_found"] * 2 + ["RateLimitError: 429"]
+    monkeypatch.setattr(sweep, "run_sweep",
+                        _fake_run_sweep_factory([], records=["r0", "r1", "r2"], rate=0.0,
+                                                errors=errors))
+    monkeypatch.setattr("sys.argv", ["sweep", "--model", "groq/gone", "--no-store"])
+
+    main()
+
+    out = capsys.readouterr().out
+    assert "3/3 runs errored" in out
+    lines = out.splitlines()
+    top = lines.index("  3/3 runs errored; most common cause(s):")
+    assert lines[top + 1] == "    2x NotFoundError: model_not_found"
+    assert lines[top + 2] == "    1x RateLimitError: 429"
 
 
 def test_main_store_path_connects_and_closes(monkeypatch, capsys):

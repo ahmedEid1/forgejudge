@@ -6,7 +6,8 @@ leaderboard and the model-swap comparison (same harness, swap the model).
 
 import argparse
 import time
-from dataclasses import dataclass
+from collections import Counter
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -25,6 +26,7 @@ DATASET = REPO_ROOT / "golden" / "dataset.jsonl"
 class SweepResult:
     model: str
     records: list[RunRecord]
+    errors: list[str] = field(default_factory=list)  # one message per status="error" run
 
     @property
     def resolution_rate(self) -> float:
@@ -57,6 +59,7 @@ def run_sweep(
     tasks = tasks if tasks is not None else load_tasks(dataset)
     cfn = complete_fn or forced_model_complete(model)
     records: list[RunRecord] = []
+    errors: list[str] = []
     for task in tasks:
         for seed in seeds:
             run_id = f"{model}-{task.instance_id}-seed{seed}"
@@ -73,16 +76,18 @@ def run_sweep(
                 status=sr.status, created_at=now or datetime.now(UTC).isoformat(),
             )
             records.append(rec)
+            if sr.status == "error":
+                errors.append(sr.error or "unknown error")
             if store_conn is not None:
                 from forgejudge.store.db import insert_run
 
                 insert_run(store_conn, rec)
-    return SweepResult(model, records)
+    return SweepResult(model, records, errors)
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="ForgeJudge scheduled eval sweep")
-    ap.add_argument("--model", required=True, help="litellm model id (e.g. groq/llama-3.3-70b-versatile)")
+    ap.add_argument("--model", required=True, help="litellm model id (e.g. groq/openai/gpt-oss-120b)")
     ap.add_argument("--seeds", default="0", help="comma-separated seeds")
     ap.add_argument("--budget-usd", type=float, default=0.10)
     ap.add_argument("--max-steps", type=int, default=6)
@@ -111,6 +116,12 @@ def main() -> None:
         Path(args.out).write_text("".join(r.model_dump_json() + "\n" for r in result.records))
     print(f"sweep model={args.model} seeds={seeds}: "
           f"resolution_rate={result.resolution_rate:.3f} over {len(result.records)} runs")
+    if result.errors:
+        # Name the cause (e.g. a retired model's model_not_found vs a 429) instead of
+        # leaving the publish gate to guess from the error rate alone.
+        print(f"  {len(result.errors)}/{len(result.records)} runs errored; most common cause(s):")
+        for msg, n in Counter(result.errors).most_common(3):
+            print(f"    {n}x {msg[:500]}")
     if conn is not None:
         conn.close()
 

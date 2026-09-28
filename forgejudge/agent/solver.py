@@ -56,6 +56,7 @@ class SolveResult:
     trace_url: str = ""                     # deep link into the run's Langfuse trace
     tokens_in: int = 0
     tokens_out: int = 0
+    error: str = ""                         # why the run errored (status == "error"), for sweep logs
 
 
 def _is_test_path(rel: str) -> bool:
@@ -170,7 +171,8 @@ def solve(
             if target is None:
                 record_evaluation(root, name="resolved", value=0.0, label="fail",
                                   explanation="no source file to edit")
-                return SolveResult("", "error", 0, 0.0, False, 0, 0, 0, trace_url)
+                return SolveResult("", "error", 0, 0.0, False, 0, 0, 0, trace_url,
+                                   error="no source file to edit")
 
             failing_tests = _read_failing_tests(work, task) if show_failing_test else ""
             feedback = ""
@@ -243,10 +245,11 @@ def solve(
                 label="pass" if status == "ok" else "fail",
                 explanation=f"status={status}, steps={steps}",
             )
-        except Exception:  # noqa: BLE001 - any failure is reported as an errored run
+        except Exception as exc:  # noqa: BLE001 - any failure is reported as an errored run
             root.set_attribute("forgejudge.error", True)
             return SolveResult("", "error", steps, cost, False, reverted, critic_rejections,
-                               no_code, trace_url, tok_in, tok_out)
+                               no_code, trace_url, tok_in, tok_out,
+                               error=f"{type(exc).__name__}: {exc}")
         finally:
             shutil.rmtree(work, ignore_errors=True)
 
