@@ -25,6 +25,8 @@
 > | `llama-3.3-70b` | 88.9% | 94.4% |
 > | `llama-3.1-8b` | 48.1% | 66.7% |
 >
+> Groq retired both Llama models from its free tier on 2026-08-16, so those two rows are frozen at their last sweep; the nightly sweep now covers `gpt-oss-120b`, `gpt-oss-20b` and `qwen3.8-27b`.
+>
 > The score rises with the better model while the harness stays fixed (model-swap proof), and `pass@3 > pass@1` shows real run-to-run variance — which is exactly why the CI gate is multi-seed. Every run [deep-links its Langfuse trace](https://forgejudge.ahmedhobeishy.tech).
 
 ForgeJudge is the only open-source autonomous software-engineering agent that **proves its quality in public on every commit**: a hand-rolled single-agent solver, a deterministic execution-as-judge harness, an always-on leaderboard with per-run traces, and a CI gate that blocks regressions — all on a **`$0` / self-hostable** stack against a **contamination-resistant, intrinsically-verifiable** golden set.
@@ -108,7 +110,7 @@ print(res.status, "→ resolved:", grade(task, res.patch).resolved)
 PY
 ```
 
-Fast tests: `uv run pytest -m "not slow"`. Full golden validation + mutation hardening: `uv run pytest -m slow`. Sweep the leaderboard: `uv run python -m forgejudge.eval.sweep --model groq/llama-3.3-70b-versatile --seeds 0,1,2`. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the full pytest marker map and dev workflow.
+Fast tests: `uv run pytest -m "not slow"`. Full golden validation + mutation hardening: `uv run pytest -m slow`. Sweep the leaderboard: `uv run python -m forgejudge.eval.sweep --model groq/openai/gpt-oss-120b --seeds 0,1,2`. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the full pytest marker map and dev workflow.
 
 ## Install
 

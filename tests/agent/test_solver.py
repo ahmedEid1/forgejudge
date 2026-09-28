@@ -196,3 +196,15 @@ def test_seed_is_forwarded_to_the_completion_call():
     solve(TASKS[SEMVER], run_id="seed-thread", budget_usd=0.1, seed=7, max_steps=1,
           complete_fn=capture)
     assert seen["edit"] == [7]  # the edit call received seed=7, not the default/MISSING
+
+
+# ---- a provider failure must say WHY the run errored (for the sweep log) ----
+
+def test_errored_run_carries_the_exception_text():
+    def retired(messages, *, role, run_id, **kwargs):
+        raise RuntimeError("model_not_found: the model does not exist")
+
+    res = solve(TASKS[SEMVER], run_id="retired-model", budget_usd=0.1, seed=0, max_steps=1,
+                complete_fn=retired)
+    assert res.status == "error"
+    assert res.error == "RuntimeError: model_not_found: the model does not exist"

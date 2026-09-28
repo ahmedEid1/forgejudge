@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Nightly `sweep`: Groq retired `llama-3.3-70b-versatile` and `llama-3.1-8b-instant`
+  from its free tier on 2026-08-16, so every run on them errored and the publish gate
+  skipped them each night. The sweep now covers `gpt-oss-120b`, `gpt-oss-20b` and
+  `qwen3.8-27b`, and the router chains in `models.yaml` no longer route through the
+  retired models.
+- Errored sweep runs now carry the exception text, the sweep log prints the most
+  common causes, and the publish gate reports a 100%-error sweep as a hard failure
+  (retired model / bad key) instead of "likely rate-limited".
+- `sweep.yml` uploads the raw runs even when a later step fails, and a failed
+  Cloudflare Pages deploy now explains how to rotate `CLOUDFLARE_API_TOKEN`.
+- `tests/test_smoke.py` no longer hardcodes the version string (#9).
+
 ### Added
 - Contributor + onboarding surfaces: `CONTRIBUTING.md`, `SECURITY.md`, a `Makefile`,
   `.python-version`, GitHub issue/PR templates, and Dependabot config.

@@ -30,6 +30,14 @@ def test_gate_rejects_degraded():
     assert ok is False and "degraded" in reason
 
 
+def test_gate_flags_all_errored_as_a_hard_failure_not_a_rate_limit():
+    # e.g. a model the provider retired: every call fails with model_not_found
+    recs = [_run("m", "error", resolved=False) for _ in range(54)]
+    ok, reason = gate(recs, max_error_rate=0.25)
+    assert ok is False and "degraded" in reason
+    assert "every run errored" in reason and "rate-limited" not in reason
+
+
 def test_gate_accepts_healthy():
     recs = [_run("m", "ok") for _ in range(17)] + [_run("m", "error", resolved=False)]
     ok, reason = gate(recs, max_error_rate=0.25)

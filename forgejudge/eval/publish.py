@@ -51,6 +51,11 @@ def gate(records: list[RunRecord], *, max_error_rate: float = DEFAULT_MAX_ERROR_
     if not records:
         return False, "empty"
     er = error_rate(records)
+    if er >= 1.0:
+        # A rate-limit storm leaves some runs standing; 100% errors is usually a
+        # hard failure (retired/renamed model id, invalid API key) that won't heal.
+        return False, (f"degraded: every run errored (error_rate {er:.2f}) — "
+                       "model retired/renamed or API key invalid? see the sweep log")
     if er > max_error_rate:
         return False, f"degraded: error_rate {er:.2f} > {max_error_rate:.2f} (likely rate-limited)"
     return True, f"ok: error_rate {er:.2f}"

@@ -62,8 +62,8 @@ def test_falls_back_to_next_model_on_primary_failure(monkeypatch):
 
     out = router.complete([{"role": "user", "content": "hi"}], role="edit", run_id="r1")
 
-    assert calls == ["groq/openai/gpt-oss-120b", "groq/llama-3.3-70b-versatile"]
-    assert out.model == "groq/llama-3.3-70b-versatile"
+    assert calls == ["groq/openai/gpt-oss-120b", "groq/qwen/qwen3.8-27b"]
+    assert out.model == "groq/qwen/qwen3.8-27b"
     assert out.text == "from fallback"
 
 
@@ -80,7 +80,7 @@ def test_all_models_failing_raises_runtimeerror(monkeypatch):
     # The error names the chain that was attempted.
     msg = str(ei.value)
     assert "groq/openai/gpt-oss-120b" in msg
-    assert "groq/llama-3.3-70b-versatile" in msg
+    assert "groq/qwen/qwen3.8-27b" in msg
 
 
 def test_cost_accumulates_per_run_id(monkeypatch):
@@ -231,7 +231,7 @@ def test_rate_limit_retries_are_bounded_then_falls_back(monkeypatch):
     assert primary_attempts == router._MAX_RATE_LIMIT_ATTEMPTS
     # Backed off once per failed attempt that had a remaining retry.
     assert len(sleeps) == router._MAX_RATE_LIMIT_ATTEMPTS - 1
-    assert out.model == "groq/llama-3.3-70b-versatile"
+    assert out.model == "groq/qwen/qwen3.8-27b"
     assert out.text == "fallback served"
 
 
@@ -274,7 +274,7 @@ def test_single_entry_chain_retries_on_rate_limit_before_raising(monkeypatch):
     out = router.complete([{"role": "user", "content": "hi"}], role="critic", run_id="r1")
 
     assert out.text == "recovered"
-    assert calls == ["groq/llama-3.3-70b-versatile", "groq/llama-3.3-70b-versatile"]
+    assert calls == ["groq/openai/gpt-oss-20b", "groq/openai/gpt-oss-20b"]
 
 
 def test_hard_error_does_not_retry_and_advances_immediately(monkeypatch):
@@ -296,6 +296,18 @@ def test_hard_error_does_not_retry_and_advances_immediately(monkeypatch):
     out = router.complete([{"role": "user", "content": "hi"}], role="edit", run_id="r1")
 
     # Primary tried exactly once (no retry), then advanced; no backoff slept.
-    assert calls == ["groq/openai/gpt-oss-120b", "groq/llama-3.3-70b-versatile"]
+    assert calls == ["groq/openai/gpt-oss-120b", "groq/qwen/qwen3.8-27b"]
     assert sleeps == []
-    assert out.model == "groq/llama-3.3-70b-versatile"
+    assert out.model == "groq/qwen/qwen3.8-27b"
+
+
+# Groq retired these from its free tier on 2026-08-16; every call to them now
+# fails with model_not_found, so no chain may route through them.
+RETIRED_GROQ_MODELS = {"groq/llama-3.3-70b-versatile", "groq/llama-3.1-8b-instant"}
+
+
+def test_no_chain_routes_through_a_retired_model():
+    chains = router._load_chains()
+    for role, chain in chains.items():
+        retired = RETIRED_GROQ_MODELS.intersection(chain)
+        assert not retired, f"role {role!r} still routes through retired model(s) {sorted(retired)}"

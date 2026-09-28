@@ -54,7 +54,10 @@ the model id changes. The score tracks the model:
 (18 tasks × 3 seeds = 54 runs per model, **162 runs total**; numbers are the live
 values in [`dashboard/public/data/leaderboard.json`](../dashboard/public/data/leaderboard.json),
 produced by the `db.leaderboard()` query in
-[`forgejudge/store/db.py`](../forgejudge/store/db.py).)
+[`forgejudge/store/db.py`](../forgejudge/store/db.py). Groq retired both Llama
+models from its free tier on 2026-08-16, so their rows are frozen at the last
+sweep; the nightly sweep now covers `gpt-oss-120b`, `gpt-oss-20b` and
+`qwen3.8-27b`.)
 
 Two things in that table are load-bearing:
 
@@ -187,9 +190,9 @@ that names the chain it tried. The current chains favour free-tier Groq, with
 Gemini preferred for the (secondary) judge:
 
 ```yaml
-edit:    [groq/openai/gpt-oss-120b, groq/llama-3.3-70b-versatile]
-critic:  [groq/llama-3.3-70b-versatile]
-judge:   [gemini/gemini-2.5-flash, groq/llama-3.3-70b-versatile]
+edit:    [groq/openai/gpt-oss-120b, groq/qwen/qwen3.8-27b]
+critic:  [groq/openai/gpt-oss-20b]
+judge:   [gemini/gemini-2.5-flash, groq/openai/gpt-oss-120b]
 ```
 
 Four things the router does that a thin wrapper would not:
@@ -555,7 +558,7 @@ self-hostable substitute:
 
 | Layer | Service | Cost | Notes |
 |---|---|---|---|
-| Models | Groq (`gpt-oss-120b`, `llama-3.3-70b`, `llama-3.1-8b`) + Gemini Flash, all behind **LiteLLM** | free tier | role→fallback chains in `models.yaml`; swap any model id |
+| Models | Groq (`gpt-oss-120b`, `gpt-oss-20b`, `qwen3.8-27b`) + Gemini Flash, all behind **LiteLLM** | free tier | role→fallback chains in `models.yaml`; swap any model id |
 | Sandbox + CI + cron | **GitHub Actions** on a public repo | free | the ephemeral isolated VM *is* the sandbox boundary; `ci`/`gate`/`eval`/`sweep` workflows |
 | Dashboard | **Cloudflare Pages** (static) | free | renders from exported JSON snapshots, always-on even when live quotas are spent |
 | Run store | **Neon** (Postgres + `pgvector`) | free tier | `migrations/001_init.sql`; canonical golden set stays in Git, DB holds runs |
