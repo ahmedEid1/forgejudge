@@ -1,6 +1,17 @@
 name: sweep
 
-# Scheduled, end-to-end leaderboard refresh:
+# End-to-end leaderboard refresh, run manually (Actions -> sweep -> Run workflow).
+#
+# ARCHIVED 2026-09-28: the nightly `schedule:` trigger was removed and the
+# leaderboard is frozen at the 2026-07-02 sweep. To run this in a fork, set the
+# secrets listed in docs/ARCHIVE.md (GROQ_API_KEY, DATABASE_URL,
+# CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID; LANGFUSE_* optional), set the
+# repository variable CLOUDFLARE_PAGES_PROJECT to your own Pages project, and
+# dispatch it. To make it nightly again, add back:
+#   schedule:
+#     - cron: "17 4 * * *"
+#
+# Steps:
 #   1. sweep EACH model over the golden set (sequential — parallel saturates the
 #      shared Groq free-tier limit; --no-store so a degraded run never touches Neon)
 #   2. quality-gated publish: a model whose sweep degraded (e.g. a free-tier daily
@@ -9,9 +20,7 @@ name: sweep
 #      healthy models are upserted into Neon and the static JSON snapshot is rebuilt
 #   3. deploy the refreshed dashboard to Cloudflare Pages
 #   4. commit the snapshot back so git matches the live site
-# NOTE: this `schedule` cron is the active trigger (GitHub disables it after 60 days
-# of repo inactivity and may run it late). A Cloudflare Cron Trigger firing
-# repository_dispatch would be a more punctual alternative — not currently wired.
+#      (publish/export overwrite dashboard/public/data, i.e. the frozen snapshot)
 
 on:
   workflow_dispatch:
@@ -22,8 +31,6 @@ on:
       seeds:
         description: "comma-separated seeds"
         default: "0,1,2"
-  schedule:
-    - cron: "17 4 * * *"
 
 permissions:
   contents: write
@@ -75,9 +82,10 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PAGES_PROJECT: ${{ vars.CLOUDFLARE_PAGES_PROJECT || 'forgejudge' }}
         run: |
           npx -y wrangler@4 pages deploy dashboard/public \
-            --project-name forgejudge --branch main --commit-dirty=true \
+            --project-name "$PAGES_PROJECT" --branch main --commit-dirty=true \
             || { echo "::error title=Cloudflare Pages deploy failed::If the log above says 'Invalid access token [code: 9109]' or 'Authentication error [code: 10000]', the CLOUDFLARE_API_TOKEN repo secret is expired or revoked. Create a new Cloudflare API token with the 'Cloudflare Pages: Edit' permission and update the secret; the snapshot commit below only runs after a successful deploy."; exit 1; }
 
       - name: Commit refreshed snapshot back to the repo

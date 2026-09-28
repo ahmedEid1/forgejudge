@@ -1,5 +1,8 @@
 # Dependabot — keep Python deps and GitHub Actions current.
 # Docs: https://docs.github.com/code-security/dependabot/dependabot-version-updates
+#
+# ARCHIVED 2026-09-28: version-update PRs are switched off with
+# `open-pull-requests-limit: 0`. A fork re-enables them by setting it back to 5.
 version: 2
 updates:
   # Python dependencies (pyproject.toml + uv.lock).
@@ -7,7 +10,7 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
     labels:
       - "dependencies"
       - "python"
@@ -19,7 +22,7 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
     labels:
       - "dependencies"
       - "github-actions"

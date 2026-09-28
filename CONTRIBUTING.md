@@ -1,5 +1,10 @@
 # Contributing to ForgeJudge
 
+> **Archived (2026-09-28).** This repository takes no new issues or pull requests.
+> Fork it to continue; [`docs/ARCHIVE.md`](./docs/ARCHIVE.md) lists what a fork needs
+> (secrets, database, deploy) to run the whole pipeline again. The guidance below
+> still applies to forks.
+
 Thanks for helping. ForgeJudge lives or dies on a credible eval, so the bar is:
 **tests green, `ruff` clean, and any new golden task is validated + mutation-hardened.**
 

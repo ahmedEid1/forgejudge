@@ -2,14 +2,16 @@
 
 # ForgeJudge
 
-**An open, always-on leaderboard and CI gate for autonomous coding agents — every patch runs in a sandbox, every run has a public trace, every regression fails the build.**
+**An open leaderboard and CI gate for autonomous coding agents — every patch runs in a sandbox, every run is traced, every regression fails the build.**
+
+> **📦 Archived (2026-09-28).** ForgeJudge is no longer maintained and nothing runs on a schedule any more. The leaderboard is frozen at the last complete sweep (2026-07-02, 162 runs). Two of its three models have since been retired by Groq. **[Archive notes & how to rerun it in a fork →](./docs/ARCHIVE.md)**
 
 [![CI](https://github.com/ahmedEid1/forgejudge/actions/workflows/ci.yml/badge.svg)](https://github.com/ahmedEid1/forgejudge/actions/workflows/ci.yml)
 [![regression gate](https://github.com/ahmedEid1/forgejudge/actions/workflows/gate.yml/badge.svg)](https://github.com/ahmedEid1/forgejudge/actions/workflows/gate.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org)
 
-**▶ Live leaderboard: [forgejudge.ahmedhobeishy.tech](https://forgejudge.ahmedhobeishy.tech)** · [playground](https://forgejudge.ahmedhobeishy.tech/playground) · [methodology](https://forgejudge.ahmedhobeishy.tech/methodology) · [model swap](https://forgejudge.ahmedhobeishy.tech/model-swap) · [MCP registry](https://registry.modelcontextprotocol.io/v0/servers?search=forgejudge)
+**▶ Archived leaderboard (frozen 2026-07-02): [forgejudge.ahmedhobeishy.tech](https://forgejudge.ahmedhobeishy.tech)** · [playground](https://forgejudge.ahmedhobeishy.tech/playground) · [methodology](https://forgejudge.ahmedhobeishy.tech/methodology) · [model swap](https://forgejudge.ahmedhobeishy.tech/model-swap) · [MCP registry](https://registry.modelcontextprotocol.io/v0/servers?search=forgejudge)
 
 </div>
 
@@ -17,19 +19,17 @@
 <!-- ^ ownership proof for the MCP registry (validated against this PyPI long-description). -->
 
 
-> **Current numbers** (hidden-test = the agent never sees the failing test; $0 free tier; same harness, swap the model; 18 tasks × 3 seeds = 54 runs/model, 162 total):
+> **Final results** — the last complete sweep, 2026-07-02 ([run #34](https://github.com/ahmedEid1/forgejudge/actions/runs/28573886970); hidden-test = the agent never sees the failing test; $0 free tier; same harness, swap the model; 18 tasks × 3 seeds = 54 runs/model, 162 total):
 >
-> | Model | pass@1 | pass@3 |
-> |---|---|---|
-> | `gpt-oss-120b` | 90.7% | 100% |
-> | `llama-3.3-70b` | 88.9% | 94.4% |
-> | `llama-3.1-8b` | 48.1% | 66.7% |
+> | Model | pass@1 | pass@3 | Status today |
+> |---|---|---|---|
+> | `llama-3.3-70b-versatile` | 98.1% | 100% | retired by Groq 2026-08-16 |
+> | `gpt-oss-120b` | 94.4% | 94.4% | available |
+> | `llama-3.1-8b-instant` | 57.4% | 72.2% | retired by Groq 2026-08-16 |
 >
-> Groq retired both Llama models from its free tier on 2026-08-16, so those two rows are frozen at their last sweep; the nightly sweep now covers `gpt-oss-120b`, `gpt-oss-20b` and `qwen3.8-27b`.
->
-> The score rises with the better model while the harness stays fixed (model-swap proof), and `pass@3 > pass@1` shows real run-to-run variance — which is exactly why the CI gate is multi-seed. Every run [deep-links its Langfuse trace](https://forgejudge.ahmedhobeishy.tech).
+> With the harness fixed, the 8B model trails the 70B/120B models by ~40 points (the model-swap signal), and `pass@3 ≥ pass@1` reflects run-to-run variance — which is exactly why the CI gate is multi-seed. Every run's patch is in [`runs.json`](./dashboard/public/data/runs.json) and re-grades to the same verdict; the Langfuse trace links pointed at the original project and are not expected to resolve any more. Details, later unpublished sweeps and the retired models: [`docs/ARCHIVE.md`](./docs/ARCHIVE.md).
 
-ForgeJudge is the only open-source autonomous software-engineering agent that **proves its quality in public on every commit**: a hand-rolled single-agent solver, a deterministic execution-as-judge harness, an always-on leaderboard with per-run traces, and a CI gate that blocks regressions — all on a **`$0` / self-hostable** stack against a **contamination-resistant, intrinsically-verifiable** golden set.
+ForgeJudge is an open-source autonomous software-engineering agent that **proved its quality in public on every commit** while it was active: a hand-rolled single-agent solver, a deterministic execution-as-judge harness, a leaderboard with per-run traces (now a frozen snapshot), and a CI gate that blocks regressions — all on a **`$0` / self-hostable** stack against a **contamination-resistant, intrinsically-verifiable** golden set.
 
 > **The engineered harness, observability, and gate are the deliverable — not a high resolution rate.** A `$0` free-model agent will score modestly *by design*. We prove value with a **model-swap comparison**: the score rises with a better model while the harness stays fixed.
 
@@ -46,7 +46,7 @@ flowchart TD
 
     G --> SOLVER
     SOLVER --> PATCH["unified diff"]
-    SOLVER -. "every step traced" .-> TRACE["OTel → Langfuse<br/>per-run public trace"]
+    SOLVER -. "every step traced" .-> TRACE["OTel → Langfuse<br/>per-run trace"]
 
     PATCH --> H["Deterministic harness, in a sandbox<br/>apply test_patch + candidate patch · run F2P / P2P<br/><b>RESOLVED iff</b> every FAIL_TO_PASS passes AND every PASS_TO_PASS stays green<br/>swebench-equivalent · stricter on skips · cheat-resistant"]
 
@@ -62,8 +62,8 @@ flowchart TD
 - **Solver** — a single, phase-structured loop (`localize → repair → validate`), *not* a multi-agent swarm: cheapest, most deterministic, most debuggable. BM25 localization, an LLM router over free tiers, a syntax edit-gate, a cheap critic pre-filter, and a cost/step budget with autosubmit.
 - **Harness** — encodes the SWE-bench `RESOLVED_FULL` rule and is **verified equivalent to `swebench.harness.grading`** on real PASS/FAIL/ERROR/XFAIL outcomes in CI — and *deliberately stricter* on a **skipped** `FAIL_TO_PASS`: swebench 4.1.0 rates a skipped oracle test `RESOLVED_FULL` (a skip is neither success nor failure), so a patch that makes the oracle *skip* rather than run grades as resolved. ForgeJudge counts a skip as not-passed, closing that cheat vector. Patches are also **cheat-resistant**: the canonical test files are restored before grading, so a patch can't neuter the oracle.
 - **Golden set** — 15 purpose-built post-cutoff fixtures + 3 tasks mined from the author's own repos (real commit SHAs, MIT/own license — zero leak/copyleft risk). Each is **mutation-hardened**: a wrong fix to the patched region is caught (16 mutation-hardened at mean score 0.94; 2 inconclusive for regex/string code; **0 weak**).
-- **Sandbox / CI / cron** — GitHub Actions on a public repo does triple duty (ephemeral isolated VM sandbox + regression gate + scheduled sweep) at `$0`.
-- **Observability** — OpenTelemetry GenAI spans (`invoke_agent → retrieval / chat / execute_tool`, `gen_ai.usage.*`, a `gen_ai.evaluation.result` pass/fail verdict) exported to Langfuse Cloud; every run is a clickable trace.
+- **Sandbox / CI / sweep** — GitHub Actions on a public repo does triple duty (ephemeral isolated VM sandbox + regression gate + leaderboard sweep) at `$0`. The sweep ran nightly until the archive; it is manual (`workflow_dispatch`) now.
+- **Observability** — OpenTelemetry GenAI spans (`invoke_agent → retrieval / chat / execute_tool`, `gen_ai.usage.*`, a `gen_ai.evaluation.result` pass/fail verdict) exported to Langfuse Cloud; every run recorded a trace link (in the original Langfuse project; since the archive the links are not expected to resolve).
 
 ### Two gates, two jobs
 
@@ -75,7 +75,7 @@ flowchart TD
     GG -->|"any gold task unresolved"| F1["fail — the harness broke"]
     GG -->|"all gold tasks resolved"| OK1["harness intact"]
 
-    CRON["Scheduled multi-seed sweep"] --> SEEDS["run the agent × N seeds<br/>→ one resolution rate per seed"]
+    CRON["On-demand multi-seed sweep"] --> SEEDS["run the agent × N seeds<br/>→ one resolution rate per seed"]
     SEEDS --> RG["Regression gate<br/>small-sample CI (Student-t / Wilson)"]
     BASE["baseline_scores.json<br/>per-seed reference"] --> RG
     RG -->|"candidate CI upper bound &lt; baseline CI lower bound"| F2["❌ fail — real regression"]
@@ -110,11 +110,13 @@ print(res.status, "→ resolved:", grade(task, res.patch).resolved)
 PY
 ```
 
-Fast tests: `uv run pytest -m "not slow"`. Full golden validation + mutation hardening: `uv run pytest -m slow`. Sweep the leaderboard: `uv run python -m forgejudge.eval.sweep --model groq/openai/gpt-oss-120b --seeds 0,1,2`. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the full pytest marker map and dev workflow.
+Fast tests: `uv run pytest -m "not slow"`. Full golden validation + mutation hardening: `uv run pytest -m slow`. Sweep one model without a database: `uv run --env-file .env python -m forgejudge.eval.sweep --model groq/openai/gpt-oss-120b --seeds 0,1,2 --no-store --out runs-0.jsonl`. The full rerun guide (secrets, database, deploy) is in [`docs/ARCHIVE.md`](./docs/ARCHIVE.md#3-rerun-it-in-a-fork). See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the full pytest marker map and dev workflow.
 
 ## Install
 
 Working on the agent/harness itself? Clone and `uv sync` (above). To consume ForgeJudge as a package:
+
+> The published `forgejudge==0.1.0` predates the archive: its `models.yaml` still lists the retired `llama-3.3-70b-versatile` in several role chains. `solve()` still works through its `gpt-oss-120b` primary, but for the current chains install from git (`pip install git+https://github.com/ahmedEid1/forgejudge`).
 
 ```bash
 # Library + the `forgejudge` CLI (selftest / mcp / info):
@@ -132,7 +134,7 @@ Optional extras (installed only when you need them):
 |---|---|---|
 | `forgejudge[harness]` | `swebench` | the swebench-equivalence grading check |
 | `forgejudge[mcp]` | `fastmcp` | the MCP server (`forgejudge mcp`) |
-| `forgejudge[playground]` | `fastapi`, `uvicorn`, `httpx` | the guarded live playground API |
+| `forgejudge[playground]` | `fastapi`, `uvicorn`, `httpx` | the guarded live playground API (self-host; the hosted instance is no longer maintained) |
 
 ```bash
 pip install "forgejudge[mcp]"            # one extra
@@ -146,7 +148,7 @@ pip install "forgejudge[harness,mcp]"    # several
 1. **"Your benchmark is contaminated / cherry-picked."** The golden set is freshly authored / post-cutoff, sourced only from the author's own repos + fixtures (no third-party leak surface), and **mutation-hardened** so a wrong patch can't pass. SWE-bench Verified is now widely held contaminated — OpenAI [stopped reporting it](https://openai.com/index/why-we-no-longer-evaluate-swe-bench-verified/) (2026-02); >32% of "passed" cases [leaked the solution](https://arxiv.org/abs/2410.06992) and ~31% passed on weak tests. Decontamination here is a documented, tested property — not a footnote.
 2. **"Thin wrapper around an LLM / a framework."** The orchestrator is hand-rolled (no LangChain): the control loop, the sandbox-and-score harness, the cheat-resistant grader, the mutation hardener, the OTel instrumentation, and the multi-seed CI gate are the work.
 3. **"Your resolution rate is low vs SOTA."** SOTA is ~88–94% with premium models and budgets; a `$0` free-model number is modest *on purpose*. The deliverable is the engineered system; the **model-swap comparison** (score rises with a better model, harness fixed) is the proof.
-4. **"Is it actually autonomous or staged?"** Every run has a public OpenTelemetry/Langfuse trace and a deterministic, reproducible score. The replay-first playground demos a real solve without exposing cost/abuse surface.
+4. **"Is it actually autonomous or staged?"** Every run recorded an OpenTelemetry/Langfuse trace, and every stored patch re-grades deterministically to its recorded verdict. The replay-first playground demos a real solve without exposing cost/abuse surface.
 5. **"Three agent projects — one-trick pony?"** One eval methodology — golden set + judge + traces + CI gate — across three domains at rising autonomy (Lumen → Thoth → ForgeJudge).
 6. **Determinism.** temperature=0 does [not guarantee determinism](https://arxiv.org/pdf/2602.07150) (pass@1 varies 2–6pp). The scorer is fully deterministic; the **gate is multi-seed** (fail only when the candidate's CI upper bound is below the baseline's CI lower bound), so flaky single runs don't break the build.
 
@@ -159,10 +161,11 @@ pip install "forgejudge[harness,mcp]"    # several
 | `forgejudge/agent/` | `localize → repair → validate` solve loop, critic |
 | `forgejudge/llm/` | role-based LiteLLM router with fallback + cost accounting |
 | `forgejudge/obs/` | OpenTelemetry GenAI tracing → Langfuse / Phoenix |
-| `forgejudge/eval/` | scheduled sweep, multi-seed regression gate, LLM-as-judge + Cohen's κ |
+| `forgejudge/eval/` | leaderboard sweep, quality-gated publish, multi-seed regression gate, LLM-as-judge + Cohen's κ |
 | `forgejudge/store/` | Neon (Postgres + pgvector) run store + leaderboard query |
 | `golden/dataset.jsonl` | canonical golden set (one `Task` per line) |
-| `.github/workflows/` | `ci`, `eval` (sandbox), `sweep` (cron), `gate` (regression) |
+| `.github/workflows/` | `ci`, `gate` (gold integrity), `eval` (sandbox), `regression-gate`, `release` (on a `v*` tag push or on demand), and the manual-only `sweep`, `pages-deploy`, `publish-mcp` |
+| `docs/` | [`DESIGN.md`](./docs/DESIGN.md) (technical deep-dive), [`ARCHIVE.md`](./docs/ARCHIVE.md) (final results + rerun guide) |
 
 ## License
 

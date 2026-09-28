@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ForgeJudge — model-swap comparison</title>
-  <meta name="description" content="Same harness, swap the model: the resolution rate rises with a more capable model. Proof that the harness measures the model, not a tuned scaffold." />
+  <meta name="description" content="Same harness, swap the model: the resolution rate tracks the model — the 8B model trails the 70B and 120B models by about 40 points. Proof that the harness measures the model, not a tuned scaffold." />
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -21,19 +21,24 @@
       <a href="https://github.com/ahmedEid1/forgejudge" target="_blank" rel="noopener">GitHub ↗</a>
     </nav>
   </div></header>
+  <div class="archive-banner" role="note"><div class="wrap">
+    <b>Archived.</b> ForgeJudge is no longer maintained: this is the final snapshot (sweep of 2026-07-02, 162 runs)
+    and nothing runs on a schedule any more. Groq retired both Llama models on 2026-08-16.
+    <a href="https://github.com/ahmedEid1/forgejudge/blob/main/docs/ARCHIVE.md" target="_blank" rel="noopener">Archive notes &amp; how to rerun it ↗</a>
+  </div></div>
 
   <main class="wrap" id="main">
     <section class="hero">
       <h1>Model swap: the harness is the deliverable</h1>
       <p class="lede">We do <b>not</b> chase a SOTA resolution rate. To show the harness measures real capability — not a
         tuned scaffold — we hold the harness, prompts, golden set, and budget <b>fixed</b> and swap only the model.
-        The score rises with a more capable model.</p>
+        The score tracks the model: the 8B model trails the 70B and 120B models by about 40 points.</p>
     </section>
 
     <section>
       <h2>Same harness, different model</h2>
       <div id="leaderboard"><p class="muted">Loading…</p></div>
-      <p class="note">Both models run the identical hidden-test pipeline (localize → repair → validate), the same
+      <p class="note">All three models run the identical hidden-test pipeline (localize → repair → validate), the same
         deterministic, cheat-resistant grader, and the same golden set. The only variable is the model — so the gap is
         a property of the <b>model</b>, while the apparatus stays constant. A $0 free-tier number is modest by design.</p>
     </section>
@@ -43,7 +48,8 @@
       <ul>
         <li>It answers the "your rate is low vs SOTA" objection: SOTA (~88–94%) uses premium models and budgets; the
           engineered, decontaminated, regression-gated system is the artifact, and the swap proves it discriminates.</li>
-        <li>It is reproducible: one command re-runs any leaderboard entry and regenerates its trace.</li>
+        <li>Grading is reproducible: every stored patch re-grades to the same verdict. Re-solving needs a model Groq still
+          serves (e.g. <code>groq/openai/gpt-oss-120b</code>) — the two Llama models were retired on 2026-08-16.</li>
       </ul>
     </section>
   </main>

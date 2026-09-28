@@ -1,6 +1,11 @@
 """Export a JSON snapshot of the leaderboard + runs from Neon for the static
-dashboard. Snapshotting (vs querying at request time) keeps the public site
-always-on and $0 — it renders historical runs even when live quotas are spent.
+dashboard. Snapshotting (vs querying at request time) keeps the public site $0
+and independent of live services — it renders historical runs even when live
+quotas are spent.
+
+Archived: ``dashboard/public/data`` holds the frozen 2026-07-02 snapshot, and an
+export rewrites it entirely from whatever database it connects to. Pass
+``--out`` to write somewhere else.
 """
 
 import argparse

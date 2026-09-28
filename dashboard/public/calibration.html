@@ -21,6 +21,11 @@
       <a href="https://github.com/ahmedEid1/forgejudge" target="_blank" rel="noopener">GitHub ↗</a>
     </nav>
   </div></header>
+  <div class="archive-banner" role="note"><div class="wrap">
+    <b>Archived.</b> ForgeJudge is no longer maintained: this is the final snapshot (sweep of 2026-07-02, 162 runs)
+    and nothing runs on a schedule any more. Groq retired both Llama models on 2026-08-16.
+    <a href="https://github.com/ahmedEid1/forgejudge/blob/main/docs/ARCHIVE.md" target="_blank" rel="noopener">Archive notes &amp; how to rerun it ↗</a>
+  </div></div>
 
   <main class="wrap" id="main">
     <section class="hero">
@@ -42,11 +47,11 @@
       <h2>Why a judge at all, and why κ</h2>
       <p>Raw agreement overstates a judge that mostly says one label. We report <b>Cohen's κ</b> (chance-adjusted agreement)
         against a hand-labeled gold set, on a single-answer discrete 1–5 rubric. Good rubrics land around κ ≈ 0.6–0.75.
-        The judge is recalibrated at launch and periodically; its κ is published here so the secondary score is trustworthy
-        before it is ever shown next to a run.</p>
-      <p class="note">MVP status: the judge harness and Cohen's-κ computation ship with a partial seed gold set
-        (<code>golden/judge_gold.jsonl</code>). The full ~200-example calibration set is a documented, in-progress item;
-        the figure above is recomputed by <code>python -m forgejudge.eval.calibrate</code> whenever the set grows.</p>
+        The judge was calibrated once, on 2026-05-30; its κ is published here so the secondary score is trustworthy
+        before it is ever shown next to a run. The project is archived, so the fuller calibration set was never built.</p>
+      <p class="note">Final status: the judge harness and Cohen's-κ computation ship with a partial seed gold set
+        (<code>golden/judge_gold.jsonl</code>, 8 pairs). The planned ~200-example set was never built; a fork can recompute
+        the figure with <code>python -m forgejudge.eval.calibrate</code>.</p>
     </section>
 
     <section>
@@ -143,7 +148,7 @@
       getJSON("data/calibration.json")
         .then((d) => render(el, d))
         .catch(() => {
-          el.innerHTML = `<p class="muted">Calibration data not available yet — run
+          el.innerHTML = `<p class="muted">Calibration data unavailable — run
             <code>python -m forgejudge.eval.calibrate</code> to publish the judge's Cohen's κ.</p>`;
         });
     })();

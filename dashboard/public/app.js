@@ -16,6 +16,15 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
 // Only allow http(s) links (never javascript: etc.).
 const safeUrl = (u) => (/^https?:\/\//i.test(u || "") ? u : "");
 
+// Models the provider has since withdrawn: their rows are frozen history and can
+// no longer be re-run (see docs/ARCHIVE.md).
+const RETIRED = {
+  "groq/llama-3.3-70b-versatile": "retired by Groq 2026-08-16",
+  "groq/llama-3.1-8b-instant": "retired by Groq 2026-08-16",
+};
+const retiredTag = (model) =>
+  RETIRED[model] ? ` <span class="retired" title="${esc(RETIRED[model])}">retired</span>` : "";
+
 function bar(frac) {
   const w = Math.round((frac || 0) * 90);
   return `<span class="barwrap"><span class="bar" style="width:${w}px"></span></span>`;
@@ -24,7 +33,7 @@ function bar(frac) {
 async function renderLeaderboard(el) {
   let data;
   try { data = await getJSON("data/leaderboard.json"); }
-  catch { el.innerHTML = `<p class="muted">Leaderboard data not available yet.</p>`; return; }
+  catch { el.innerHTML = `<p class="muted">Leaderboard data unavailable.</p>`; return; }
 
   const models = data.models || [];
   // pass@k is "any seed for a task resolves" — k = the number of seeds actually
@@ -37,7 +46,7 @@ async function renderLeaderboard(el) {
 
   const rows = models.map((m, i) => `
     <tr>
-      <th scope="row"><span class="rank">${i + 1}.</span> <span class="model">${esc(m.model)}</span></th>
+      <th scope="row"><span class="rank">${i + 1}.</span> <span class="model">${esc(m.model)}</span>${retiredTag(m.model)}</th>
       <td class="num">${bar(m.pass_at_1)}${pct(m.pass_at_1)}</td>
       <td class="num">${pct(passK(m))}</td>
       <td class="num">${money(m.mean_cost_usd)}</td>
@@ -66,21 +75,21 @@ async function renderLeaderboard(el) {
       <tbody>${rows || `<tr><td colspan="8" class="muted">No runs yet.</td></tr>`}</tbody>
     </table>
     <p class="small muted">Golden set: ${data.n_tasks} intrinsically-verifiable tasks ·
-      snapshot ${snap} UTC ·
+      final snapshot ${snap} UTC (archived; no further sweeps) ·
       same harness, model swapped — score reflects the model, not a tuned scaffold.</p>`;
 }
 
 async function renderRuns(el) {
   let data;
   try { data = await getJSON("data/runs.json"); }
-  catch { el.innerHTML = `<p class="muted">Run data not available yet.</p>`; return; }
+  catch { el.innerHTML = `<p class="muted">Run data unavailable.</p>`; return; }
   const runs = data.runs || [];
   const rows = runs.map((r) => {
     const url = safeUrl(r.trace_url);
     return `
     <tr>
       <th scope="row" class="model">${esc(r.task_id)}</th>
-      <td class="model muted">${esc(r.model)}</td>
+      <td class="model muted">${esc(r.model)}${retiredTag(r.model)}</td>
       <td>${r.resolved ? '<span class="badge pass">RESOLVED</span>' : '<span class="badge fail">unsolved</span>'}</td>
       <td class="num">${r.f2p_passed}/${r.f2p_total}</td>
       <td class="num">${r.p2p_passed}/${r.p2p_total}</td>

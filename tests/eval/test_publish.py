@@ -98,3 +98,27 @@ def test_publish_exports_even_when_all_skipped(tmp_path, monkeypatch):
     assert report["published"] == []
     assert report["skipped"][0]["model"] == "groq/bad"
     assert report["exported"] is True  # skipped models keep prior Neon data; snapshot still refreshes
+
+
+def test_main_seeds_the_tasks_table_before_publishing(tmp_path, monkeypatch):
+    # The sweep runs with --no-store, so on a fresh database publish is the only
+    # step that can fill `tasks`; without it the export reports 0 tasks.
+    import forgejudge.store.db as db
+
+    runs = tmp_path / "runs-m.jsonl"
+    runs.write_text(_run("m", "ok").model_dump_json() + "\n")
+    calls = []
+    monkeypatch.setattr(db, "connect", lambda *a, **k: type("C", (), {"close": lambda self: None})())
+    monkeypatch.setattr(db, "init_db", lambda conn: calls.append("init_db"))
+    monkeypatch.setattr(db, "upsert_tasks", lambda conn, tasks: calls.append(("upsert_tasks", len(tasks))))
+
+    def fake_publish(files, **kw):
+        calls.append("publish")
+        return {"published": [{"model": "m", "n": 1, "reason": "ok"}], "skipped": [], "exported": False}
+
+    monkeypatch.setattr(P, "publish", fake_publish)
+    monkeypatch.setattr("sys.argv", ["publish", "--runs", str(tmp_path / "runs-*.jsonl"), "--no-export"])
+
+    P.main()
+
+    assert calls == ["init_db", ("upsert_tasks", 18), "publish"]

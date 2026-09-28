@@ -1,6 +1,7 @@
 """Run the agent over every task x seed, grade each patch, persist RunRecords.
 
-Scheduled by .github/workflows/sweep.yml. ``run_sweep(model, seeds)`` powers the
+Run on demand by .github/workflows/sweep.yml (it was nightly until the project was
+archived). ``run_sweep(model, seeds)`` powers the
 leaderboard and the model-swap comparison (same harness, swap the model).
 """
 
@@ -86,7 +87,7 @@ def run_sweep(
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="ForgeJudge scheduled eval sweep")
+    ap = argparse.ArgumentParser(description="ForgeJudge eval sweep")
     ap.add_argument("--model", required=True, help="litellm model id (e.g. groq/openai/gpt-oss-120b)")
     ap.add_argument("--seeds", default="0", help="comma-separated seeds")
     ap.add_argument("--budget-usd", type=float, default=0.10)

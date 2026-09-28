@@ -1,6 +1,6 @@
 """Quality-gated leaderboard publish.
 
-The scheduled sweep writes one ``runs-<model>.jsonl`` per model (``--no-store
+The sweep workflow writes one ``runs-<model>.jsonl`` per model (``--no-store
 --out``). Publishing then (a) refuses to persist a model whose sweep visibly
 degraded — e.g. a free-tier daily-token-limit storm that turns most runs into
 ``status="error"`` — so a flaky run can never overwrite good numbers with
@@ -22,6 +22,9 @@ from forgejudge.store.export import export_snapshot
 from forgejudge.types import RunRecord
 
 DEFAULT_MAX_ERROR_RATE = 0.25
+
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+DATASET = REPO_ROOT / "golden" / "dataset.jsonl"
 
 
 def load_runs(path: str | Path) -> list[RunRecord]:
@@ -111,10 +114,14 @@ def main() -> None:
     if not files:
         raise SystemExit(f"no run files matched {args.runs!r}")
 
-    from forgejudge.store.db import connect, init_db
+    from forgejudge.golden.loader import load_tasks
+    from forgejudge.store.db import connect, init_db, upsert_tasks
 
     conn = connect()
     init_db(conn)
+    # The workflow sweeps with --no-store, so nothing else fills the tasks table
+    # the export reads (n_tasks, problem statements) on a fresh database.
+    upsert_tasks(conn, load_tasks(DATASET))
     try:
         report = publish(
             files, conn=conn, out_dir=(args.out or None),

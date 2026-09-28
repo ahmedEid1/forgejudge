@@ -1,1 +1,1 @@
-"""ForgeJudge MCP server (FastMCP, streamable-HTTP)."""
+"""ForgeJudge MCP server (FastMCP, stdio)."""

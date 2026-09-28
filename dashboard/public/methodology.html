@@ -21,6 +21,11 @@
       <a href="https://github.com/ahmedEid1/forgejudge" target="_blank" rel="noopener">GitHub ↗</a>
     </nav>
   </div></header>
+  <div class="archive-banner" role="note"><div class="wrap">
+    <b>Archived.</b> ForgeJudge is no longer maintained: this is the final snapshot (sweep of 2026-07-02, 162 runs)
+    and nothing runs on a schedule any more. Groq retired both Llama models on 2026-08-16.
+    <a href="https://github.com/ahmedEid1/forgejudge/blob/main/docs/ARCHIVE.md" target="_blank" rel="noopener">Archive notes &amp; how to rerun it ↗</a>
+  </div></div>
 
   <main class="wrap" id="main">
     <section class="hero">
@@ -62,7 +67,7 @@
         <li>The candidate patch may change <b>source only</b>; every test file is restored to its canonical version before grading,
           so a patch cannot neuter or weaken the oracle to fake a resolution.</li>
         <li>Our verdict is <b>verified equivalent</b> to the official <code>swebench.harness.grading.get_resolution_status</code>
-          in CI on every commit — for real PASS/FAIL/ERROR/XFAIL outcomes.</li>
+          in CI on every commit (while the project was active) — for real PASS/FAIL/ERROR/XFAIL outcomes.</li>
         <li>And it is <b>deliberately stricter on a skipped oracle</b>: swebench 4.1.0 rates a <code>SKIPPED</code> FAIL_TO_PASS
           as <code>RESOLVED_FULL</code> (a skip is neither success nor failure), so a patch that makes the oracle <em>skip</em>
           rather than run would grade as resolved. ForgeJudge counts a skip as <b>not-passed</b>, closing that cheat vector
@@ -87,7 +92,7 @@
       <h2>6 · The honest framing</h2>
       <p class="note">A $0 free-model resolution rate is modest <b>by design</b>. The deliverable is the engineered, decontaminated,
         regression-gated system — the harness, the traces, the gate — proven via the
-        <a href="model-swap.html">model-swap comparison</a> (the score rises with a better model while the harness stays fixed).</p>
+        <a href="model-swap.html">model-swap comparison</a> (the score tracks the model while the harness stays fixed).</p>
     </section>
   </main>
 

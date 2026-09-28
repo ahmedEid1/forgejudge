@@ -1,19 +1,14 @@
 name: pages-deploy
 
-# Deploy the static dashboard to Cloudflare Pages whenever its published assets
-# change on main. Before this, a dashboard / methodology / OG-card HTML edit only
-# went live on the next nightly `sweep` run — so a copy fix could sit stale for a
-# day. This pushes the site within minutes of the merge, independent of the sweep.
+# Deploy the static dashboard (dashboard/public) to Cloudflare Pages on demand.
 #
-# Only `dashboard/public/**` changes trigger it (the deployed root); other edits
-# don't need a redeploy. The nightly sweep still deploys after refreshing the
-# leaderboard data, so the two are complementary, not racing.
+# ARCHIVED 2026-09-28: this used to run on every push to main that touched
+# dashboard/public/**. It is manual-only now (Actions -> pages-deploy -> Run
+# workflow), so nothing deploys automatically. It needs the CLOUDFLARE_API_TOKEN
+# (permission "Cloudflare Pages: Edit") and CLOUDFLARE_ACCOUNT_ID secrets; a fork
+# also sets the repository variable CLOUDFLARE_PAGES_PROJECT to its own project.
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "dashboard/public/**"
   workflow_dispatch:
 
 permissions:
@@ -34,6 +29,7 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PAGES_PROJECT: ${{ vars.CLOUDFLARE_PAGES_PROJECT || 'forgejudge' }}
         run: |
           npx -y wrangler@4 pages deploy dashboard/public \
-            --project-name forgejudge --branch main --commit-dirty=true
+            --project-name "$PAGES_PROJECT" --branch main --commit-dirty=true

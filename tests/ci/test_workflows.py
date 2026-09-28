@@ -238,8 +238,36 @@ def test_sweep_does_not_default_to_retired_models():
     sweep_step = next(s for s in wf["jobs"]["sweep"]["steps"] if "MODELS" in (s.get("env") or {}))
     defaults = [
         on["workflow_dispatch"]["inputs"]["models"]["default"],
-        sweep_step["env"]["MODELS"],  # the cron (no-inputs) fallback
+        sweep_step["env"]["MODELS"],  # fallback when dispatched without inputs
     ]
     for d in defaults:
         for m in retired:
             assert m not in d, f"sweep.yml still defaults to retired Groq model {m}"
+
+
+# --------------------------------------------------------------------------- #
+# Archive (2026-09-28): nothing may run on a timer or deploy automatically. The
+# leaderboard is frozen at the 2026-07-02 sweep; forks re-enable these by hand
+# (see docs/ARCHIVE.md).
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize("path", sorted(WF_DIR.glob("*.yml")), ids=lambda p: p.name)
+def test_archived_no_workflow_runs_on_a_schedule(path):
+    wf = yaml.safe_load(path.read_text())
+    on = wf.get("on") or wf.get(True) or {}
+    assert not (isinstance(on, dict) and "schedule" in on), (
+        f"{path.name} has a schedule trigger, but the project is archived"
+    )
+
+
+def test_archived_pages_deploy_is_manual_only():
+    wf = _load("pages-deploy.yml")
+    on = wf.get("on") or wf.get(True)
+    assert set(on) == {"workflow_dispatch"}, "pages-deploy must not deploy automatically"
+
+
+def test_archived_dependabot_version_updates_are_off():
+    cfg = yaml.safe_load((WF_DIR.parent / "dependabot.yml").read_text())
+    limits = [u.get("open-pull-requests-limit") for u in cfg["updates"]]
+    assert limits and all(limit == 0 for limit in limits), limits

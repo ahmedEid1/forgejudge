@@ -75,6 +75,12 @@ dfn, abbr[title] { font-style: normal; cursor: help; text-decoration: underline 
   padding: 4px 12px; font-size: 13px; color: var(--muted); }
 .pill b { color: var(--text); }
 
+/* Archive notice at the top of the main pages (project archived 2026-09-28). */
+.archive-banner { background: var(--panel-2); border-bottom: 1px solid var(--border);
+  border-left: 3px solid var(--amber); font-size: 14px; padding: 10px 0; }
+.archive-banner b { color: var(--amber); }
+.retired { color: var(--amber); font-size: 12px; margin-left: 6px; white-space: nowrap; }
+
 .note { background: var(--panel); border: 1px solid var(--border); border-left: 3px solid var(--amber);
   border-radius: 8px; padding: 12px 16px; color: var(--muted); font-size: 14px; margin: 18px 0; }
 
