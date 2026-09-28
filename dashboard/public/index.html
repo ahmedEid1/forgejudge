@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ForgeJudge — leaderboard + CI gate for autonomous coding agents</title>
-  <meta name="description" content="An open, always-on leaderboard and CI gate for autonomous coding agents — every patch sandboxed, every run traced, every regression fails the build. $0 stack." />
+  <meta name="description" content="Archived: an open leaderboard and CI gate for autonomous coding agents — every patch sandboxed, every run traced, every regression fails the build. $0 stack. Final results frozen at the 2026-07-02 sweep." />
   <link rel="canonical" href="https://forgejudge.ahmedhobeishy.tech/" />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://forgejudge.ahmedhobeishy.tech/" />
@@ -33,11 +33,16 @@
       <a href="https://github.com/ahmedEid1/forgejudge" target="_blank" rel="noopener">GitHub ↗</a>
     </nav>
   </div></header>
+  <div class="archive-banner" role="note"><div class="wrap">
+    <b>Archived.</b> ForgeJudge is no longer maintained: this is the final snapshot (sweep of 2026-07-02, 162 runs)
+    and nothing runs on a schedule any more. Groq retired both Llama models on 2026-08-16.
+    <a href="https://github.com/ahmedEid1/forgejudge/blob/main/docs/ARCHIVE.md" target="_blank" rel="noopener">Archive notes &amp; how to rerun it ↗</a>
+  </div></div>
 
   <main class="wrap" id="main">
     <section class="hero">
       <h1>Execution-as-judge for autonomous coding agents.</h1>
-      <p class="lede">Every patch runs in a sandbox, every run has a public trace, every regression fails
+      <p class="lede">Every patch runs in a sandbox, every run is traced, every regression fails
         the build — on a <b>$0</b> stack, against a contamination-resistant, intrinsically-verifiable golden set.
         The engineered harness is the deliverable, not the resolution rate.</p>
       <div class="pills">
@@ -60,7 +65,8 @@
 
     <section>
       <h2>Per-run results</h2>
-      <p class="small muted">Each run is reproducible and deep-links to its full OpenTelemetry trace in Langfuse.</p>
+      <p class="small muted">Each run's stored patch re-grades deterministically to the verdict shown. Trace links point at the
+        original Langfuse project and are not expected to resolve any more.</p>
       <div id="runs"><p class="muted">Loading…</p></div>
     </section>
   </main>

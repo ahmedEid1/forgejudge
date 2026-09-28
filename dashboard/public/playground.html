@@ -30,6 +30,11 @@
       <a href="https://github.com/ahmedEid1/forgejudge" target="_blank" rel="noopener">GitHub ↗</a>
     </nav>
   </div></header>
+  <div class="archive-banner" role="note"><div class="wrap">
+    <b>Archived.</b> ForgeJudge is no longer maintained: this is the final snapshot (sweep of 2026-07-02, 162 runs)
+    and nothing runs on a schedule any more. Groq retired both Llama models on 2026-08-16.
+    <a href="https://github.com/ahmedEid1/forgejudge/blob/main/docs/ARCHIVE.md" target="_blank" rel="noopener">Archive notes &amp; how to rerun it ↗</a>
+  </div></div>
 
   <main class="wrap" id="main">
     <section class="hero">
@@ -37,8 +42,8 @@
       <p class="lede">Step through a <b>real recorded</b> agent solve — issue → localized patch → deterministic
         test verdict → public trace. <b>Replay-first:</b> no live model call, no quota risk; the run was scored once,
         deterministically, and is reproducible.</p>
-      <div class="note">🟢 <b>Replay mode</b> — these are real, previously-graded runs from the leaderboard. (A guarded
-        live runner on a Hugging Face Space is the optional, rate-limited counterpart.)</div>
+      <div class="note">🟢 <b>Replay mode</b> — these are real, previously-graded runs from the leaderboard. (The guarded
+        live runner in <code>playground_api/</code> is no longer hosted; it can be self-hosted from the repository.)</div>
       <div class="controls">
         <label for="pick">Run:</label>
         <select id="pick" aria-label="choose a recorded run"></select>
@@ -75,7 +80,7 @@
         <div class="step"><h3><span class="n">4.</span> Deterministic, cheat-resistant verdict</h3>
           <p>${verdict} &nbsp; FAIL_TO_PASS ${run.f2p_passed}/${run.f2p_total} · PASS_TO_PASS ${run.p2p_passed}/${run.p2p_total}
              &nbsp;·&nbsp; ${run.tokens_in + run.tokens_out} tokens · $${(run.cost_usd||0).toFixed(4)}</p>
-          ${url ? `<p><a href="${esc(url)}" target="_blank" rel="noopener">Open the full OpenTelemetry trace in Langfuse ↗</a></p>` : ""}
+          ${url ? `<p><a href="${esc(url)}" target="_blank" rel="noopener">Open the recorded OpenTelemetry trace in Langfuse ↗</a> <span class="small muted">(original project; not expected to resolve any more)</span></p>` : ""}
         </div>`;
     }
     (async () => {
