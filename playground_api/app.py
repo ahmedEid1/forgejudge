@@ -11,7 +11,7 @@ Defense-in-depth so a public live runner can't be abused or drain free quota:
 * **Optional Cloudflare Turnstile** — enforced when ``TURNSTILE_SECRET`` is set.
 
 The replay-first playground on the dashboard is the $0 default; this live runner
-is the rate-limited counterpart (no longer hosted since the archive).
+is the rate-limited counterpart (no longer maintained since the archive).
 """
 
 import os

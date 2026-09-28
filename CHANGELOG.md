@@ -17,16 +17,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   updates are off. Guard tests keep it that way.
 - Both deploy steps read the Pages project from the `CLOUDFLARE_PAGES_PROJECT`
   repository variable, so a fork can deploy without editing the workflows.
-- The dashboard, README, design doc, CLI and package metadata say "archived" instead
-  of "always-on"; the result tables show the frozen snapshot; the two retired Groq
+- The dashboard source (the live site needs one manual `pages-deploy` with a renewed
+  Cloudflare token to show it), README, design doc, CLI and package metadata say
+  "archived" instead of "always-on"; the result tables show the frozen snapshot; the two retired Groq
   models are marked as such; the OG card is re-rendered.
-- `make sweep` now runs with `--no-store --out runs.jsonl`, so it works without a
-  database; `.env.example` lists the secrets the workflows actually read.
+- `make sweep` now runs with `--no-store --out runs-<model>.jsonl`, so it works without
+  a database and its output matches publish's `runs-*.jsonl` glob; `.env.example` lists
+  the secrets the workflows actually read.
+- `publish` now upserts the golden tasks into the database itself. The sweep runs with
+  `--no-store`, so on a fresh database nothing else filled the `tasks` table and the
+  export reported 0 tasks and empty problem statements.
 
 ### Fixed
 - Nightly `sweep`: Groq retired `llama-3.3-70b-versatile` and `llama-3.1-8b-instant`
-  from its free tier on 2026-08-16, so every run on them errored and the publish gate
-  skipped them each night. The sweep now covers `gpt-oss-120b`, `gpt-oss-20b` and
+  from its free tier on 2026-08-16; from 2026-08-18 every run on them errored and the
+  publish gate skipped them each night. The sweep now covers `gpt-oss-120b`, `gpt-oss-20b` and
   `qwen3.8-27b`, and the router chains in `models.yaml` no longer route through the
   retired models.
 - Errored sweep runs now carry the exception text, the sweep log prints the most

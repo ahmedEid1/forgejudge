@@ -46,7 +46,7 @@ flowchart TD
 
     G --> SOLVER
     SOLVER --> PATCH["unified diff"]
-    SOLVER -. "every step traced" .-> TRACE["OTel → Langfuse<br/>per-run public trace"]
+    SOLVER -. "every step traced" .-> TRACE["OTel → Langfuse<br/>per-run trace"]
 
     PATCH --> H["Deterministic harness, in a sandbox<br/>apply test_patch + candidate patch · run F2P / P2P<br/><b>RESOLVED iff</b> every FAIL_TO_PASS passes AND every PASS_TO_PASS stays green<br/>swebench-equivalent · stricter on skips · cheat-resistant"]
 
@@ -63,7 +63,7 @@ flowchart TD
 - **Harness** — encodes the SWE-bench `RESOLVED_FULL` rule and is **verified equivalent to `swebench.harness.grading`** on real PASS/FAIL/ERROR/XFAIL outcomes in CI — and *deliberately stricter* on a **skipped** `FAIL_TO_PASS`: swebench 4.1.0 rates a skipped oracle test `RESOLVED_FULL` (a skip is neither success nor failure), so a patch that makes the oracle *skip* rather than run grades as resolved. ForgeJudge counts a skip as not-passed, closing that cheat vector. Patches are also **cheat-resistant**: the canonical test files are restored before grading, so a patch can't neuter the oracle.
 - **Golden set** — 15 purpose-built post-cutoff fixtures + 3 tasks mined from the author's own repos (real commit SHAs, MIT/own license — zero leak/copyleft risk). Each is **mutation-hardened**: a wrong fix to the patched region is caught (16 mutation-hardened at mean score 0.94; 2 inconclusive for regex/string code; **0 weak**).
 - **Sandbox / CI / sweep** — GitHub Actions on a public repo does triple duty (ephemeral isolated VM sandbox + regression gate + leaderboard sweep) at `$0`. The sweep ran nightly until the archive; it is manual (`workflow_dispatch`) now.
-- **Observability** — OpenTelemetry GenAI spans (`invoke_agent → retrieval / chat / execute_tool`, `gen_ai.usage.*`, a `gen_ai.evaluation.result` pass/fail verdict) exported to Langfuse Cloud; every run is a clickable trace.
+- **Observability** — OpenTelemetry GenAI spans (`invoke_agent → retrieval / chat / execute_tool`, `gen_ai.usage.*`, a `gen_ai.evaluation.result` pass/fail verdict) exported to Langfuse Cloud; every run recorded a trace link (in the original Langfuse project; since the archive the links are not expected to resolve).
 
 ### Two gates, two jobs
 
@@ -116,7 +116,7 @@ Fast tests: `uv run pytest -m "not slow"`. Full golden validation + mutation har
 
 Working on the agent/harness itself? Clone and `uv sync` (above). To consume ForgeJudge as a package:
 
-> The published `forgejudge==0.1.0` predates the archive: its `models.yaml` still routes most roles through the retired `llama-3.3-70b-versatile`. For the current model chains, install from git (`pip install git+https://github.com/ahmedEid1/forgejudge`). `selftest` and `info` are unaffected.
+> The published `forgejudge==0.1.0` predates the archive: its `models.yaml` still lists the retired `llama-3.3-70b-versatile` in several role chains. `solve()` still works through its `gpt-oss-120b` primary, but for the current chains install from git (`pip install git+https://github.com/ahmedEid1/forgejudge`).
 
 ```bash
 # Library + the `forgejudge` CLI (selftest / mcp / info):
@@ -164,7 +164,7 @@ pip install "forgejudge[harness,mcp]"    # several
 | `forgejudge/eval/` | leaderboard sweep, quality-gated publish, multi-seed regression gate, LLM-as-judge + Cohen's κ |
 | `forgejudge/store/` | Neon (Postgres + pgvector) run store + leaderboard query |
 | `golden/dataset.jsonl` | canonical golden set (one `Task` per line) |
-| `.github/workflows/` | `ci`, `gate` (gold integrity), `eval` (sandbox), `regression-gate`, and the manual-only `sweep`, `pages-deploy`, `release`, `publish-mcp` |
+| `.github/workflows/` | `ci`, `gate` (gold integrity), `eval` (sandbox), `regression-gate`, `release` (on a `v*` tag push or on demand), and the manual-only `sweep`, `pages-deploy`, `publish-mcp` |
 | `docs/` | [`DESIGN.md`](./docs/DESIGN.md) (technical deep-dive), [`ARCHIVE.md`](./docs/ARCHIVE.md) (final results + rerun guide) |
 
 ## License

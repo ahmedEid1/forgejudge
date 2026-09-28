@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ForgeJudge — replay playground</title>
-  <meta name="description" content="Step through a real recorded agent solve: issue → patch → deterministic test verdict → public trace. Replay-first: no live model call." />
+  <meta name="description" content="Step through a real recorded agent solve: issue → patch → deterministic test verdict → recorded trace. Replay-first: no live model call." />
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="styles.css" />
   <style>
@@ -40,10 +40,10 @@
     <section class="hero">
       <h1>Replay playground</h1>
       <p class="lede">Step through a <b>real recorded</b> agent solve — issue → localized patch → deterministic
-        test verdict → public trace. <b>Replay-first:</b> no live model call, no quota risk; the run was scored once,
+        test verdict → recorded trace. <b>Replay-first:</b> no live model call, no quota risk; the run was scored once,
         deterministically, and is reproducible.</p>
       <div class="note">🟢 <b>Replay mode</b> — these are real, previously-graded runs from the leaderboard. (The guarded
-        live runner in <code>playground_api/</code> is no longer hosted; it can be self-hosted from the repository.)</div>
+        live runner in <code>playground_api/</code> is no longer maintained; it can be self-hosted from the repository.)</div>
       <div class="controls">
         <label for="pick">Run:</label>
         <select id="pick" aria-label="choose a recorded run"></select>

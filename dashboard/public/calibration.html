@@ -49,9 +49,9 @@
         against a hand-labeled gold set, on a single-answer discrete 1–5 rubric. Good rubrics land around κ ≈ 0.6–0.75.
         The judge was calibrated once, on 2026-05-30; its κ is published here so the secondary score is trustworthy
         before it is ever shown next to a run. The project is archived, so the fuller calibration set was never built.</p>
-      <p class="note">MVP status: the judge harness and Cohen's-κ computation ship with a partial seed gold set
-        (<code>golden/judge_gold.jsonl</code>). The full ~200-example calibration set is a documented, in-progress item;
-        the figure above is recomputed by <code>python -m forgejudge.eval.calibrate</code> whenever the set grows.</p>
+      <p class="note">Final status: the judge harness and Cohen's-κ computation ship with a partial seed gold set
+        (<code>golden/judge_gold.jsonl</code>, 8 pairs). The planned ~200-example set was never built; a fork can recompute
+        the figure with <code>python -m forgejudge.eval.calibrate</code>.</p>
     </section>
 
     <section>

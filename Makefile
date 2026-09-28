@@ -35,8 +35,8 @@ selftest: ## Deterministic harness self-test — grade gold patches (18/18, no k
 build: ## Build the sdist + wheel into dist/
 	uv build
 
-sweep: ## Run the eval sweep (MODEL=... SEEDS=...) without a DB -> runs.jsonl — needs GROQ_API_KEY
-	uv run python -m forgejudge.eval.sweep --model $(MODEL) --seeds $(SEEDS) --no-store --out runs.jsonl
+sweep: ## Run the eval sweep (MODEL=... SEEDS=...) without a DB -> runs-<model>.jsonl — needs GROQ_API_KEY
+	uv run python -m forgejudge.eval.sweep --model $(MODEL) --seeds $(SEEDS) --no-store --out runs-$(subst /,_,$(MODEL)).jsonl
 
 clean: ## Remove build/test caches and artifacts
 	rm -rf dist build .pytest_cache .ruff_cache .coverage htmlcov *.egg-info

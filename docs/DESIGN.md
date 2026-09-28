@@ -465,7 +465,7 @@ skip-to-resolve cheat, and both halves are pinned in CI so neither can drift.**
 ## 5. The multi-seed regression gate
 
 File: [`forgejudge/eval/gate.py`](../forgejudge/eval/gate.py), workflows
-`.github/workflows/gate.yml` (exact) and `sweep.yml` (stochastic).
+`.github/workflows/gate.yml` (exact) and `regression-gate.yml` (stochastic).
 
 There are **two distinct gates**, because there are two different variance axes,
 and conflating them produces either a flaky build or a false sense of safety.

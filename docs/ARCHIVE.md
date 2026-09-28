@@ -37,10 +37,13 @@ runs in total, scaffold `0.1.0`, on the Groq free tier ($0).
 - **pass@1** is the mean over tasks of each task's resolve rate across the seeds.
   **pass@3** is the fraction of tasks that any seed resolved. Both come from
   `leaderboard()` in [`forgejudge/store/db.py`](../forgejudge/store/db.py).
-- Every run cost $0.00 on the free tier. A run took about 10 s and about 1.1–1.3k
-  tokens.
+- It ran on Groq's free tier, so nothing was paid. Every run recorded
+  `cost_usd` 0.00, including models LiteLLM has prices for, so treat the cost
+  column as unmeasured rather than as a price. A run took about 10 s and about
+  1.1–1.3k tokens.
 - Run outcomes: 151 `ok`, 9 `error`, 2 `budget_exceeded`. All 9 errored runs are
-  on the two `owned-*` tasks. `owned-handson-metrics` was the hardest task: only
+  on two of the three `owned-*` tasks (`owned-handson-metrics` and
+  `owned-raschka-tokenizer`). `owned-handson-metrics` was the hardest task: only
   `llama-3.3-70b` solved it (3/3), and the other two models errored on every seed
   of it. Every task was solved by at least one model. Eight tasks were solved on
   every seed by every model.
@@ -59,10 +62,10 @@ archive, but nothing after 2026-07-02 reached git or the live site. From
 9109]`), and the snapshot commit only runs after a successful deploy. The
 quality-gated publish still wrote each night's healthy models to the Neon run
 store, which therefore holds later, mixed-date runs that were never published.
-For reference, the log of run #80 on 2026-08-17, one of the last nights all
-three models still ran, printed resolution rates of 0.907 (`gpt-oss-120b`), 0.944
+For reference, the log of run #80 on 2026-08-17, the last night all three
+models still ran, printed resolution rates of 0.907 (`gpt-oss-120b`), 0.944
 (`llama-3.3-70b`) and 0.537 (`llama-3.1-8b`), in line with the frozen numbers.
-By early September every call to the two Llama models failed.
+From run #81 on 2026-08-18 every call to the two Llama models failed.
 
 Older copies of the README quoted 90.7% / 88.9% / 48.1%. Those numbers came from
 the 2026-05-29 sweep, and the table above supersedes them.
@@ -81,24 +84,22 @@ sweep logs.
 
 | Thing | Status | What to use instead |
 |---|---|---|
-| `groq/llama-3.3-70b-versatile` | Retired by Groq for free and developer tiers on 2026-08-16 (announced 2026-06-17). Calls fail with `model_not_found`. | `groq/openai/gpt-oss-120b` or `groq/qwen/qwen3.8-27b` |
+| `groq/llama-3.3-70b-versatile` | Retired by Groq for free and developer tiers on 2026-08-16 (announced 2026-06-17). This repo's calls still succeeded on 2026-08-17 and have failed since 2026-08-18. | `groq/openai/gpt-oss-120b` or `groq/qwen/qwen3.8-27b` |
 | `groq/llama-3.1-8b-instant` | Retired on the same date. | `groq/openai/gpt-oss-20b` |
 | `gemini/gemini-2.5-flash` (judge, primary) | Google restricted the 2.5 models to existing users in September 2026 (not verified from here). | A current Gemini Flash model in [`models.yaml`](../forgejudge/llm/models.yaml). The judge chain already falls back to `groq/openai/gpt-oss-120b`. |
-| OpenRouter `qwen3-coder:free` (mentioned in `.env.example`) | Free variant withdrawn in July 2026. Nothing in the code routes through OpenRouter. | Not needed. |
-| The live dashboard (Cloudflare Pages) | Frozen at the 2026-07-02 deploy. The deploy token has been invalid since 2026-07-04. | Serve `dashboard/public` locally, or deploy your own copy (§3). |
-| The hosted live playground (Hugging Face Space) | Not maintained. | Self-host `playground_api/` (Dockerfile included). The dashboard's replay playground needs no backend. |
+| OpenRouter `qwen3-coder:free` (suggested in older copies of `.env.example`) | Free variant withdrawn in July 2026. Nothing in the code routes through OpenRouter. | Not needed. |
+| The live dashboard (Cloudflare Pages) | Still serves the 2026-07-02 deploy, which predates this archive: the data is the frozen snapshot, but the pages have no archive banner and still say "always-on". The deploy token has been invalid since 2026-07-04, and deploys are manual now. | Maintainer, once: create a Cloudflare API token with *Cloudflare Pages: Edit*, update `CLOUDFLARE_API_TOKEN`, run *Actions → pages-deploy*, or take the site down. Everyone else: serve `dashboard/public` locally, or deploy your own copy (§3). |
+| The hosted live playground (Hugging Face Space) | Not maintained. Nothing in this repository deploys or stops it. | Maintainer: pause or delete the Space and its `GROQ_API_KEY` secret. Everyone else: self-host `playground_api/` (Dockerfile included); the dashboard's replay playground needs no backend. |
 | Langfuse trace links in `runs.json` | They point at the original Langfuse project. They probably need project access and are past the free plan's retention window, so expect them not to resolve. | Patches and verdicts are in `runs.json`. Re-grade them locally (§3.1). |
 | `eval/baseline_scores.json` (regression-gate baseline) | Holds `llama-3.3-70b`'s per-seed rates from 2026-05-29 (`[0.9444, 0.8889, 0.8333]`), a retired model. | Regenerate it from your own sweep (§3.5). |
-| PyPI `forgejudge==0.1.0` | Ships the pre-archive `models.yaml`, which still routes most roles through the retired `llama-3.3-70b-versatile`. | Install from git (`pip install git+https://github.com/<you>/forgejudge`). |
+| PyPI `forgejudge==0.1.0` | Its `models.yaml` still lists the retired `llama-3.3-70b-versatile` as primary for plan/localize/critic and as the edit and judge fallback. `solve()` and the MCP `solve_issue` tool still work, because they only call the `edit` role, whose primary is `gpt-oss-120b`; a fallback to the retired model fails. | Install from git (`pip install git+https://github.com/<you>/forgejudge`) for the current chains. |
 
 The current defaults already avoid every retired model: `gpt-oss-120b`,
 `gpt-oss-20b` and `qwen3.8-27b` in
 [`sweep.yml`](../.github/workflows/sweep.yml) and in
 [`models.yaml`](../forgejudge/llm/models.yaml). A test fails if a retired id
 comes back. Note that `gpt-oss-20b` and `qwen3.8-27b` were never actually swept
-in this repository, so there are no results for them. The locked LiteLLM
-(1.86.2) has no price entry for `qwen3.8-27b`, so its calls route fine but record
-a cost of $0. Run `uv lock --upgrade-package litellm` if you want real costs.
+in this repository, so there are no results for them.
 
 ## 3. Rerun it in a fork
 
@@ -154,10 +155,10 @@ Set these under the fork's *Settings → Secrets and variables → Actions*.
 | Name | Needed for | Required? |
 |---|---|---|
 | `GROQ_API_KEY` | Every agent call (all default models are Groq). Get a free key at console.groq.com. | **Yes** |
-| `DATABASE_URL` | The quality-gated publish step, and the MCP `get_leaderboard`/`get_run` tools. Use Postgres with `pgvector` (Neon works). The schema is created automatically. | **Yes** (full pipeline) |
+| `DATABASE_URL` | The quality-gated publish step, and the MCP `get_leaderboard`/`get_run` tools. Use Postgres with `pgvector` (Neon works). Publish creates the schema and fills the task table itself. | **Yes** (full pipeline) |
 | `CLOUDFLARE_API_TOKEN` | Deploying the dashboard. The token needs the *Cloudflare Pages: Edit* permission. | **Yes** (to deploy) |
 | `CLOUDFLARE_ACCOUNT_ID` | Deploying the dashboard. | **Yes** (to deploy) |
-| `CLOUDFLARE_PAGES_PROJECT` (a repository **variable**, not a secret) | Your Pages project name. It defaults to `forgejudge`, which is taken, because `pages.dev` names are global. | **Yes** (to deploy) |
+| `CLOUDFLARE_PAGES_PROJECT` (a repository **variable**, not a secret) | Your Pages project name. The workflows fall back to `forgejudge`. | Only if your project has another name |
 | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_HOST` | Per-run traces. Set all three or none (see §4). | Optional |
 | `GEMINI_API_KEY` | The LLM-as-judge primary (`python -m forgejudge.eval.calibrate`), or sweeping a `gemini/*` model. The judge falls back to Groq. | Optional |
 | `OPENROUTER_API_KEY` | Only for sweeping an `openrouter/*` model id. | Optional |
@@ -173,8 +174,9 @@ nothing reads them.
   before sweeping.
 - **Database:** create a Neon project, or any Postgres with `pgvector`, and put
   its connection string (`...?sslmode=require`) in `DATABASE_URL`. No manual
-  migration is needed: `init_db()` applies `migrations/001_init.sql` on every
-  publish.
+  setup is needed: every publish applies `migrations/001_init.sql` (`init_db()`)
+  and upserts the 18 golden tasks, which the export reads for the task count and
+  the problem statements.
 - **Cloudflare Pages:** run `npx wrangler pages project create <name>
   --production-branch main`, set `CLOUDFLARE_PAGES_PROJECT=<name>`, and
   optionally attach a custom domain in the Cloudflare dashboard.
@@ -190,11 +192,22 @@ nothing reads them.
   (`HOMEPAGE`, asserted in `tests/test_cli.py`), `forgejudge/mcp/server.json`,
   `dashboard/public/index.html` (canonical and Open Graph tags),
   `dashboard/public/sitemap.xml`, `dashboard/public/robots.txt`,
-  `dashboard/og_card.html` and `.env.example`. `playground_api/` still uses the
-  older `forgejudge.pages.dev` host.
+  `dashboard/og_card.html`, `playground_api/app.py` and
+  `playground_api/README.md`.
 - **Repository URL** `github.com/ahmedEid1/forgejudge` appears in the README,
-  the dashboard nav, `cli.py`, `server.json`, and `playground_api/Dockerfile`,
-  which clones it at build time.
+  `CONTRIBUTING.md`, `SECURITY.md`, `pyproject.toml` (`[project.urls]`), the
+  dashboard nav, footers and archive banners, `forgejudge/cli.py` (`REPO`,
+  asserted in `tests/test_cli.py`), `forgejudge/mcp/server.json`,
+  `playground_api/README.md`, and `playground_api/Dockerfile`, which clones it
+  at build time.
+- **Archive notices:** remove the `archive-banner` block from
+  `dashboard/public/{index,playground,model-swap,methodology,calibration}.html`;
+  in `dashboard/public/app.js`, change the `final snapshot … (archived; no
+  further sweeps)` label and the `RETIRED` map; update the "Archived" meta
+  description in `index.html`, the 8B-vs-70B/120B sentence in `model-swap.html`
+  (meta description and lede), and the tagline and numbers in
+  `dashboard/og_card.html`. Then re-render `dashboard/public/og.png` with
+  `node dashboard/render_og.mjs` (it imports a global Playwright install).
 - **Package and registry names:** the PyPI distribution `forgejudge`
   (`pyproject.toml`, `release.yml`, `cli.py`, `server.json`) and the MCP
   registry name `io.github.ahmedEid1/forgejudge` (`server.json`, plus the
@@ -207,7 +220,7 @@ nothing reads them.
 
 1. Go to *Actions → sweep → Run workflow*. The inputs are a comma-separated list
    of model ids and the seeds. With the defaults (three models × 18 tasks × 3
-   seeds) it takes about 20 minutes. The workflow sweeps each model with
+   seeds) it takes about 30 minutes. The workflow sweeps each model with
    `--no-store`, runs the quality-gated publish (which skips a model if more
    than 25% of its runs errored), rebuilds `dashboard/public/data`, deploys it to Pages, and
    commits the snapshot back to `main`.
