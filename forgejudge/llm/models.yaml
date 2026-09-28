@@ -1,16 +1,18 @@
 # Role -> ordered model fallback chain (litellm model ids).
 # The router tries each model in order until one returns; if all fail it raises.
 # Chains favour free-tier Groq models; the judge prefers Gemini for quality.
+# Groq retired llama-3.3-70b-versatile / llama-3.1-8b-instant from the free tier
+# on 2026-08-16; their slots use Groq's recommended replacements (gpt-oss, qwen).
 plan:
-  - groq/llama-3.3-70b-versatile
+  - groq/qwen/qwen3.8-27b
   - groq/openai/gpt-oss-120b
 localize:
-  - groq/llama-3.3-70b-versatile
+  - groq/openai/gpt-oss-20b
 edit:
   - groq/openai/gpt-oss-120b
-  - groq/llama-3.3-70b-versatile
+  - groq/qwen/qwen3.8-27b
 critic:
-  - groq/llama-3.3-70b-versatile
+  - groq/openai/gpt-oss-20b
 judge:
   - gemini/gemini-2.5-flash
-  - groq/llama-3.3-70b-versatile
+  - groq/openai/gpt-oss-120b

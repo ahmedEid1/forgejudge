@@ -5,7 +5,7 @@
 .PHONY: help sync test test-fast lint format selftest build sweep clean
 
 # --- sweep knobs (override on the CLI) ---
-MODEL ?= groq/llama-3.3-70b-versatile
+MODEL ?= groq/openai/gpt-oss-120b
 SEEDS ?= 0,1,2
 
 help: ## Show this help

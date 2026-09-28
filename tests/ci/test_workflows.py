@@ -227,3 +227,19 @@ def test_sweep_covers_multiple_models():
     on = wf.get("on") or wf.get(True)  # PyYAML parses the `on:` key as boolean True
     default_models = on["workflow_dispatch"]["inputs"]["models"]["default"]
     assert default_models.count(",") >= 2, "sweep should default to sweeping all leaderboard models"
+
+
+def test_sweep_does_not_default_to_retired_models():
+    """Groq retired these from its free tier on 2026-08-16; sweeping them yields
+    54/54 errored runs that the publish gate silently skips every night."""
+    retired = ("llama-3.3-70b-versatile", "llama-3.1-8b-instant")
+    wf = _load("sweep.yml")
+    on = wf.get("on") or wf.get(True)
+    sweep_step = next(s for s in wf["jobs"]["sweep"]["steps"] if "MODELS" in (s.get("env") or {}))
+    defaults = [
+        on["workflow_dispatch"]["inputs"]["models"]["default"],
+        sweep_step["env"]["MODELS"],  # the cron (no-inputs) fallback
+    ]
+    for d in defaults:
+        for m in retired:
+            assert m not in d, f"sweep.yml still defaults to retired Groq model {m}"
