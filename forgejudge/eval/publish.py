@@ -1,6 +1,6 @@
 """Quality-gated leaderboard publish.
 
-The scheduled sweep writes one ``runs-<model>.jsonl`` per model (``--no-store
+The sweep workflow writes one ``runs-<model>.jsonl`` per model (``--no-store
 --out``). Publishing then (a) refuses to persist a model whose sweep visibly
 degraded — e.g. a free-tier daily-token-limit storm that turns most runs into
 ``status="error"`` — so a flaky run can never overwrite good numbers with

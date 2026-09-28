@@ -6,8 +6,8 @@ name: gate
 # per-seed samples — so we pool every shard record and require that EVERY gold
 # task resolves (rate == 1.0) via `gate --mode exact` (findings #2/#4). Any
 # partial breakage (even one gold task stops resolving) fails the build. The stochastic
-# multi-seed CI gate (regression_gate vs baseline_scores.json) is reserved for
-# the scheduled sweep, where each sample is a genuine per-SEED rerun.
+# multi-seed CI gate (regression_gate vs baseline_scores.json) runs on demand in
+# regression-gate.yml, where each sample is a genuine per-SEED rerun.
 
 on:
   pull_request:

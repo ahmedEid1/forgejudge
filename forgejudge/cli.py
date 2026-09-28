@@ -24,8 +24,8 @@ def _version() -> str:
 
 def _cmd_info(_: argparse.Namespace) -> int:
     print(f"forgejudge {_version()}")
-    print("Open, always-on leaderboard + CI gate for autonomous coding agents.")
-    print(f"  leaderboard : {HOMEPAGE}")
+    print("Open leaderboard + CI gate for autonomous coding agents (archived; results frozen 2026-07-02).")
+    print(f"  leaderboard : {HOMEPAGE} (final snapshot)")
     print(f"  source      : {REPO}")
     print("  subcommands : selftest | mcp | info  (run `forgejudge <cmd> -h`)")
     return 0

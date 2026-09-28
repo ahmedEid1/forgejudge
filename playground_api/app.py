@@ -10,8 +10,8 @@ Defense-in-depth so a public live runner can't be abused or drain free quota:
   endpoint returns 503 rather than spending more.
 * **Optional Cloudflare Turnstile** — enforced when ``TURNSTILE_SECRET`` is set.
 
-The replay-first playground on the dashboard is the always-on, $0 default; this
-live runner is the rate-limited counterpart.
+The replay-first playground on the dashboard is the $0 default; this live runner
+is the rate-limited counterpart (no longer hosted since the archive).
 """
 
 import os
@@ -93,8 +93,9 @@ def create_app(*, solve_fn=None, tasks=None, turnstile_verify=None, require_turn
         return (
             "<h1>ForgeJudge — guarded live playground</h1>"
             "<p>Pre-vetted tasks only · per-IP rate limit · fail-closed daily token budget."
-            " The always-on replay playground lives at "
-            "<a href='https://forgejudge.pages.dev/playground'>forgejudge.pages.dev/playground</a>.</p>"
+            " The replay playground lives at "
+            "<a href='https://forgejudge.ahmedhobeishy.tech/playground'>"
+            "forgejudge.ahmedhobeishy.tech/playground</a>.</p>"
             f"<p>Runnable task ids ({len(ids)}): {', '.join(ids)}</p>"
         )
 

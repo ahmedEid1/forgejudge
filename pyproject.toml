@@ -1,7 +1,7 @@
 [project]
 name = "forgejudge"
 version = "0.1.0"
-description = "Open, always-on leaderboard + CI gate for autonomous coding agents — every patch sandboxed, every run traced, every regression fails the build."
+description = "Open leaderboard + CI gate for autonomous coding agents (archived) — every patch sandboxed, every run traced, every regression fails the build."
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
