@@ -23,6 +23,9 @@ from forgejudge.types import RunRecord
 
 DEFAULT_MAX_ERROR_RATE = 0.25
 
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+DATASET = REPO_ROOT / "golden" / "dataset.jsonl"
+
 
 def load_runs(path: str | Path) -> list[RunRecord]:
     """Load ``RunRecord``s from a ``model_dump_json``-per-line ``.jsonl`` file."""
@@ -111,10 +114,14 @@ def main() -> None:
     if not files:
         raise SystemExit(f"no run files matched {args.runs!r}")
 
-    from forgejudge.store.db import connect, init_db
+    from forgejudge.golden.loader import load_tasks
+    from forgejudge.store.db import connect, init_db, upsert_tasks
 
     conn = connect()
     init_db(conn)
+    # The workflow sweeps with --no-store, so nothing else fills the tasks table
+    # the export reads (n_tasks, problem statements) on a fresh database.
+    upsert_tasks(conn, load_tasks(DATASET))
     try:
         report = publish(
             files, conn=conn, out_dir=(args.out or None),
