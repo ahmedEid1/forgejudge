@@ -49,8 +49,8 @@ runs in total, scaffold `0.1.0`, on the Groq free tier ($0).
   pass@3 ≥ pass@1 everywhere. It is strictly greater for both Llama models, and
   equal for `gpt-oss-120b`, whose only misses are the three seeds of one task.
 - **Reproducible grading.** `runs.json` stores the patch from every run. Grading
-  is deterministic, so re-grading all 162 patches against the golden set
-  reproduces the stored verdicts. See [§3.1](#31-local-reproduction-only-groq_api_key)
+  is deterministic: re-grading all 162 patches against the golden set on
+  2026-09-28 reproduced every stored verdict (162/162). See [§3.1](#31-local-reproduction-only-groq_api_key)
   for the command.
 
 **Why nothing later is published.** The nightly sweep kept running until the
@@ -115,7 +115,7 @@ uv sync
 uv run python -m forgejudge.harness.runner_actions --patch-source gold
 uv run ruff check && uv run pytest -m "not slow" -q
 
-# Re-grade the frozen snapshot: every stored verdict should reproduce
+# Re-grade the frozen snapshot: all 162 stored verdicts reproduce (about 10 minutes)
 uv run python - <<'PY'
 import json
 from forgejudge.golden.loader import load_tasks
