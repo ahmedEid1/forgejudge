@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Archived (2026-09-28)
+- The project is archived and no longer maintained. The leaderboard is frozen at the
+  last complete sweep (2026-07-02, 162 runs): `llama-3.3-70b-versatile` 98.1% /
+  `gpt-oss-120b` 94.4% / `llama-3.1-8b-instant` 57.4% pass@1. See `docs/ARCHIVE.md`
+  for the final results, what no longer works, and how to rerun it in a fork.
+- Nothing runs on its own any more: the nightly `sweep` schedule is removed (the
+  workflow is dispatch-only), `pages-deploy` is manual-only, and Dependabot version
+  updates are off. Guard tests keep it that way.
+- Both deploy steps read the Pages project from the `CLOUDFLARE_PAGES_PROJECT`
+  repository variable, so a fork can deploy without editing the workflows.
+- The dashboard, README, design doc, CLI and package metadata say "archived" instead
+  of "always-on"; the result tables show the frozen snapshot; the two retired Groq
+  models are marked as such; the OG card is re-rendered.
+- `make sweep` now runs with `--no-store --out runs.jsonl`, so it works without a
+  database; `.env.example` lists the secrets the workflows actually read.
+
 ### Fixed
 - Nightly `sweep`: Groq retired `llama-3.3-70b-versatile` and `llama-3.1-8b-instant`
   from its free tier on 2026-08-16, so every run on them errored and the publish gate

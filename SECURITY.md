@@ -1,5 +1,9 @@
 # Security Policy
 
+> **This project is archived (2026-09-28) and unsupported.** There will be no fixes,
+> advisories or releases. The threat model below still describes the code, and it
+> matters to anyone running a fork: model-authored patches are hostile input.
+
 ForgeJudge runs **untrusted, model-authored code**: the solver applies an LLM's patch
 and the harness executes the resulting test suite to grade it. We take the safety of
 that pipeline seriously and welcome responsible disclosure.
@@ -13,16 +17,18 @@ that pipeline seriously and welcome responsible disclosure.
 - **Cheat-resistance.** The grader restores the canonical test files before scoring and
   counts a *skipped* `FAIL_TO_PASS` as not-passed, so a patch can't neuter or skip its
   way to a green verdict. Bypasses of this are in scope.
-- **The guarded playground** (`playground_api/`) is a public live runner: pre-vetted
+- **The guarded playground** (`playground_api/`) was a public live runner (no longer
+  hosted; self-host it from the repo): pre-vetted
   task allowlist only (no free-form prompt reaches the model), per-IP rate limit, a
   fail-closed daily token budget, and optional Cloudflare Turnstile. Auth/budget/rate
   bypasses, prompt-injection that reaches the model, and quota-drain vectors are in scope.
 - **Secrets.** API keys and DB URLs come from the environment / `.env` (gitignored).
-  Anything that exfiltrates a key or writes to the production leaderboard DB is in scope.
+  Anything that exfiltrates a key or writes to a deployment's leaderboard DB is in scope.
 
 ## Reporting a vulnerability
 
-**Do not open a public issue for a security bug.** Instead, report privately via either:
+Because the project is archived, reports are not acted on. If you run a fork, handle
+reports there. For the historical record, reports went privately via either:
 
 - GitHub **Security Advisories** — <https://github.com/ahmedEid1/forgejudge/security/advisories/new>
   (preferred; lets us collaborate on a fix before disclosure), or

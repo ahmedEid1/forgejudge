@@ -1,14 +1,18 @@
 # ForgeJudge — Technical Design
 
-> An open, always-on leaderboard and CI gate for autonomous coding agents: every
-> patch runs in a sandbox, every run has a public trace, every regression fails
-> the build.
+> An open leaderboard and CI gate for autonomous coding agents: every patch runs
+> in a sandbox, every run is traced, every regression fails the build.
+
+> **Archived (2026-09-28).** The project is no longer maintained; nothing runs on
+> a schedule and the leaderboard is frozen at the 2026-07-02 sweep. See
+> [`ARCHIVE.md`](./ARCHIVE.md) for the final results, the models that no longer
+> exist, and how to rerun everything in a fork.
 
 This document is the engineering deep-dive behind
 [`forgejudge.ahmedhobeishy.tech`](https://forgejudge.ahmedhobeishy.tech). It is
 written to be checked against the code — every claim below points at a file you
-can read. Where a number appears, it is the current measured value, not an
-aspiration.
+can read. Where a number appears, it is the value measured at the final snapshot
+(2026-07-02) unless dated otherwise, not an aspiration.
 
 ## Table of contents
 
@@ -47,26 +51,28 @@ the model id changes. The score tracks the model:
 
 | Model | pass@1 | pass@3 |
 |---|---|---|
-| `groq/openai/gpt-oss-120b` | 90.7% | 100% |
-| `groq/llama-3.3-70b-versatile` | 88.9% | 94.4% |
-| `groq/llama-3.1-8b-instant` | 48.1% | 66.7% |
+| `groq/llama-3.3-70b-versatile` | 98.1% | 100% |
+| `groq/openai/gpt-oss-120b` | 94.4% | 94.4% |
+| `groq/llama-3.1-8b-instant` | 57.4% | 72.2% |
 
-(18 tasks × 3 seeds = 54 runs per model, **162 runs total**; numbers are the live
-values in [`dashboard/public/data/leaderboard.json`](../dashboard/public/data/leaderboard.json),
-produced by the `db.leaderboard()` query in
-[`forgejudge/store/db.py`](../forgejudge/store/db.py). Groq retired both Llama
-models from its free tier on 2026-08-16, so their rows are frozen at the last
-sweep; the nightly sweep now covers `gpt-oss-120b`, `gpt-oss-20b` and
-`qwen3.8-27b`.)
+(18 tasks × 3 seeds = 54 runs per model, **162 runs total**; these are the frozen
+values in [`dashboard/public/data/leaderboard.json`](../dashboard/public/data/leaderboard.json)
+from the last complete sweep, 2026-07-02, produced by the `db.leaderboard()`
+query in [`forgejudge/store/db.py`](../forgejudge/store/db.py). Groq retired both
+Llama models from its free tier on 2026-08-16, so those rows can no longer be
+reproduced; see [`ARCHIVE.md`](./ARCHIVE.md).)
 
 Two things in that table are load-bearing:
 
-- The rate **rises with the stronger model** while the harness is fixed. That is
-  the evidence that the harness measures *agent capability*, not harness quirks —
-  an 8B model cannot fake its way to 90%.
-- `pass@3 > pass@1` on every row. That gap is real run-to-run variance (the agent
-  is stochastic), which is *exactly why the CI gate is multi-seed* — a single
-  flaky run must never break the build. See [§5](#5-the-multi-seed-regression-gate).
+- The rate **tracks model capability** while the harness is fixed: the 8B model
+  trails the 70B and 120B models by about 40 points. That is the evidence that
+  the harness measures *agent capability*, not harness quirks — an 8B model
+  cannot fake its way to 95%.
+- `pass@3 ≥ pass@1` on every row, and strictly greater for both Llama models.
+  That gap is real run-to-run variance (the agent is stochastic), which is
+  *exactly why the CI gate is multi-seed* — a single flaky run must never break
+  the build. See [§5](#5-the-multi-seed-regression-gate). (`gpt-oss-120b`'s only
+  misses are all three seeds of one task, so it has no gap.)
 
 The orchestrator is hand-rolled. There is no LangChain, no agent framework, no
 multi-agent swarm. The control loop, the sandbox-and-score harness, the
@@ -119,12 +125,12 @@ and the multi-seed CI gate **are the work**.
         │  leaderboard(): pass@1 / pass@k / $-per-task / tokens / trace  │
         │      │ export_snapshot()  store/export.py                      │
         │      ▼                                                          │
-        │  static JSON → Cloudflare Pages dashboard (always-on, $0)      │
+        │  static JSON → Cloudflare Pages dashboard ($0; now frozen)     │
         └───────────────────────────────────────────────────────────────┘
 
-   GATES (GitHub Actions on every PR / on cron)
+   GATES (GitHub Actions on every PR / on demand)
    ├─ gate.yml  → exact_gold_gate()  : deterministic, re-grade gold, rate must == 1.0
-   └─ sweep + regression_gate()      : stochastic multi-seed CI (Student-t / Wilson)
+   └─ regression-gate.yml → regression_gate() : stochastic multi-seed CI (Student-t / Wilson)
 ```
 
 Three properties of this shape matter:
@@ -417,7 +423,7 @@ test [`tests/harness/test_swebench_grade.py`](../tests/harness/test_swebench_gra
 ForgeJudge encodes the SWE-bench resolution rule directly (so the core scorer
 carries no heavy runtime dependency), and then **proves that encoding correct by
 cross-checking it against the official `swebench.harness.grading` in CI on every
-commit.** The CI job (`swebench-equivalence` in `.github/workflows/ci.yml`)
+commit** (while the project was active). The CI job (`swebench-equivalence` in `.github/workflows/ci.yml`)
 installs the optional `forgejudge[harness]` extra, hard-imports `swebench` so a
 failed install is a loud failure rather than a silently-skipped test, and runs
 `pytest -m swebench`. The equivalence test drives `is_resolved_by_swebench` from
@@ -492,8 +498,9 @@ of a bounded resolution rate.)
 A side with a single seed has no variance estimate, so the gate **refuses** it
 (`ValueError`) rather than acting on a meaningless point estimate — both the
 committed baseline ([`eval/baseline_scores.json`](../eval/baseline_scores.json),
-currently `[0.9444, 0.8889, 0.8333]`, a real ≥3-seed sample) and the candidate
-must carry ≥2 seeds. The whole gate is pure standard library — no scipy, no numpy.
+`[0.9444, 0.8889, 0.8333]`, a real ≥3-seed sample — `llama-3.3-70b-versatile`'s
+per-seed rates from the 2026-05-29 sweep, a model Groq has since retired, so a
+fork should regenerate it) and the candidate must carry ≥2 seeds. The whole gate is pure standard library — no scipy, no numpy.
 
 ### Gate 2 — deterministic gold-integrity gate (`exact_gold_gate`)
 
@@ -508,7 +515,7 @@ This separation is the point: the **stochastic** gate guards "did the agent get
 worse?" with a noise-aware CI rule; the **deterministic** gate guards "did
 someone break patch application / the grader?" with zero tolerance. They run on
 different events (`gate.yml` re-grades gold on every PR; the multi-seed
-`regression_gate` is reserved for the scheduled sweep), and keeping them separate
+`regression_gate` runs on demand in `regression-gate.yml`), and keeping them separate
 means a flaky agent run never masks a real harness regression, and a real harness
 regression is never excused as noise.
 
@@ -547,7 +554,9 @@ endpoint never stalls the agent hot path. Each run's `trace_url` is a best-effor
 Langfuse deep link (`trace_url_for`) — and notably it returns `""` when Langfuse
 export is *not* configured, so the public leaderboard never advertises a dead
 `404` link to a trace that was never sent. The result: **every run on the
-leaderboard is a clickable, public trace.**
+leaderboard recorded a clickable trace link.** (Since the archive those links
+point at the original Langfuse project and are not expected to resolve; the
+patches and verdicts they described are in `dashboard/public/data/runs.json`.)
 
 ---
 
@@ -559,18 +568,19 @@ self-hostable substitute:
 | Layer | Service | Cost | Notes |
 |---|---|---|---|
 | Models | Groq (`gpt-oss-120b`, `gpt-oss-20b`, `qwen3.8-27b`) + Gemini Flash, all behind **LiteLLM** | free tier | role→fallback chains in `models.yaml`; swap any model id |
-| Sandbox + CI + cron | **GitHub Actions** on a public repo | free | the ephemeral isolated VM *is* the sandbox boundary; `ci`/`gate`/`eval`/`sweep` workflows |
-| Dashboard | **Cloudflare Pages** (static) | free | renders from exported JSON snapshots, always-on even when live quotas are spent |
+| Sandbox + CI + sweep | **GitHub Actions** on a public repo | free | the ephemeral isolated VM *is* the sandbox boundary; `ci`/`gate`/`eval`/`sweep` workflows (the sweep was nightly until the archive, manual now) |
+| Dashboard | **Cloudflare Pages** (static) | free | renders from exported JSON snapshots, so it keeps working even when live quotas are spent (now a frozen snapshot) |
 | Run store | **Neon** (Postgres + `pgvector`) | free tier | `migrations/001_init.sql`; canonical golden set stays in Git, DB holds runs |
 | Tracing | **Langfuse Cloud** (Phoenix optional self-host) | free tier | OTLP/HTTP export |
 | Distribution | **MCP server** published to the official registry | free | `forgejudge/mcp/server.py`, OIDC-published `server.json` |
 
 The single most leveraged insight: **GitHub Actions does triple duty** —
-ephemeral isolated VM sandbox, regression gate, *and* scheduled sweep — so the
+ephemeral isolated VM sandbox, regression gate, *and* leaderboard sweep — so the
 benchmark needs no dedicated execution infrastructure. The static-snapshot
 dashboard (`store/export.py` → `dashboard/public/data/*.json`) keeps the public
-site `$0` and always-on: it renders historical runs and their traces even when
-live API quotas are exhausted.
+site `$0` and independent of any live service: it renders historical runs even
+when live API quotas are exhausted, which is also what lets it outlive the
+project as a frozen archive.
 
 The MCP server (`forgejudge/mcp/server.py`, FastMCP over stdio) exposes the agent
 and leaderboard as tools (`get_leaderboard`, `get_run`, `solve_issue`) with the
@@ -650,12 +660,14 @@ the canary that catches a broken grader before it can mislabel an agent run.
 - **Free-tier dependence.** The headline numbers are free-model numbers and will
   move if providers change their free models; the model-swap framing is precisely
   what makes that acceptable — the *instrument* is the deliverable, and any model
-  id can be dropped in behind it.
+  id can be dropped in behind it. This happened: Groq retired both Llama models
+  on 2026-08-16, so two of the three leaderboard rows can no longer be
+  reproduced (see [`ARCHIVE.md`](./ARCHIVE.md)).
 
 ---
 
-*Numbers in this document — 18 tasks, 162 runs, pass@1 90.7% / 88.9% / 48.1%,
+*Numbers in this document — 18 tasks, 162 runs, pass@1 98.1% / 94.4% / 57.4%,
 mutation hardening 16 hardened (mean 0.94) / 2 inconclusive / 0 weak, gold
-self-test 18/18 — are the live values from `golden/dataset.jsonl`,
-`dashboard/public/data/leaderboard.json`, and the mutation/self-test runs as of
-this writing.*
+self-test 18/18 — are the frozen values from `golden/dataset.jsonl`,
+`dashboard/public/data/leaderboard.json` (2026-07-02), and the mutation/self-test
+runs.*
