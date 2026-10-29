@@ -27,7 +27,7 @@
 > | `gpt-oss-120b` | 94.4% | 94.4% | available |
 > | `llama-3.1-8b-instant` | 57.4% | 72.2% | retired by Groq 2026-08-16 |
 >
-> With the harness fixed, the 8B model trails the 70B/120B models by ~40 points (the model-swap signal), and `pass@3 ≥ pass@1` reflects run-to-run variance — which is exactly why the CI gate is multi-seed. Every run's patch is in [`runs.json`](./dashboard/public/data/runs.json) and re-grades to the same verdict; the Langfuse trace links pointed at the original project and are not expected to resolve any more. Details, later unpublished sweeps and the retired models: [`docs/ARCHIVE.md`](./docs/ARCHIVE.md).
+> With the harness fixed, the 8B model trails the 70B/120B models by ~40 points (the model-swap signal), and `pass@3 ≥ pass@1` reflects run-to-run variance — which is exactly why the CI gate is multi-seed. Every run's patch is in [`runs.json`](./dashboard/public/data/runs.json) and re-grades to the same verdict. Traces were kept in Langfuse while the project ran; they are not public, so the trace links do not open for other viewers. Details, later unpublished sweeps and the retired models: [`docs/ARCHIVE.md`](./docs/ARCHIVE.md).
 
 ForgeJudge is an open-source autonomous software-engineering agent that **proved its quality in public on every commit** while it was active: a hand-rolled single-agent solver, a deterministic execution-as-judge harness, a leaderboard with per-run traces (now a frozen snapshot), and a CI gate that blocks regressions — all on a **`$0` / self-hostable** stack against a **contamination-resistant, intrinsically-verifiable** golden set.
 
@@ -48,7 +48,7 @@ flowchart TD
     SOLVER --> PATCH["unified diff"]
     SOLVER -. "every step traced" .-> TRACE["OTel → Langfuse<br/>per-run trace"]
 
-    PATCH --> H["Deterministic harness, in a sandbox<br/>apply test_patch + candidate patch · run F2P / P2P<br/><b>RESOLVED iff</b> every FAIL_TO_PASS passes AND every PASS_TO_PASS stays green<br/>swebench-equivalent · stricter on skips · cheat-resistant"]
+    PATCH --> H["Deterministic harness, in a sandbox<br/>apply test_patch + candidate patch · run F2P / P2P<br/><b>RESOLVED iff</b> every FAIL_TO_PASS passes AND every PASS_TO_PASS stays green<br/>SWE-bench-style grading on a contamination-resistant task set · stricter on skips · cheat-resistant"]
 
     H --> STORE["Run store<br/>Neon + pgvector"]
     STORE --> LB["Leaderboard<br/>pass@1 / pass@3 · cost · tokens · trace link"]
@@ -63,7 +63,7 @@ flowchart TD
 - **Harness** — encodes the SWE-bench `RESOLVED_FULL` rule and is **verified equivalent to `swebench.harness.grading`** on real PASS/FAIL/ERROR/XFAIL outcomes in CI — and *deliberately stricter* on a **skipped** `FAIL_TO_PASS`: swebench 4.1.0 rates a skipped oracle test `RESOLVED_FULL` (a skip is neither success nor failure), so a patch that makes the oracle *skip* rather than run grades as resolved. ForgeJudge counts a skip as not-passed, closing that cheat vector. Patches are also **cheat-resistant**: the canonical test files are restored before grading, so a patch can't neuter the oracle.
 - **Golden set** — 15 purpose-built post-cutoff fixtures + 3 tasks mined from the author's own repos (real commit SHAs, MIT/own license — zero leak/copyleft risk). Each is **mutation-hardened**: a wrong fix to the patched region is caught (16 mutation-hardened at mean score 0.94; 2 inconclusive for regex/string code; **0 weak**).
 - **Sandbox / CI / sweep** — GitHub Actions on a public repo does triple duty (ephemeral isolated VM sandbox + regression gate + leaderboard sweep) at `$0`. The sweep ran nightly until the archive; it is manual (`workflow_dispatch`) now.
-- **Observability** — OpenTelemetry GenAI spans (`invoke_agent → retrieval / chat / execute_tool`, `gen_ai.usage.*`, a `gen_ai.evaluation.result` pass/fail verdict) exported to Langfuse Cloud; every run recorded a trace link (in the original Langfuse project; since the archive the links are not expected to resolve).
+- **Observability** — OpenTelemetry GenAI spans (`invoke_agent → retrieval / chat / execute_tool`, `gen_ai.usage.*`, a `gen_ai.evaluation.result` pass/fail verdict) exported to Langfuse Cloud; every run recorded a trace link while the project ran. The traces are not public, so the links do not open for other viewers.
 
 ### Two gates, two jobs
 
