@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ForgeJudge — methodology & decontamination</title>
-  <meta name="description" content="How ForgeJudge resists contamination and weak tests: post-cutoff own-source tasks, mutation hardening, cheat-resistant grading, swebench-equivalent scoring, multi-seed gating." />
+  <meta name="description" content="How ForgeJudge resists contamination and weak tests: post-cutoff own-source tasks, mutation hardening, cheat-resistant SWE-bench-style grading on a contamination-resistant task set, multi-seed gating." />
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -62,7 +62,7 @@
     </section>
 
     <section>
-      <h2>4 · Cheat-resistant, swebench-equivalent grading</h2>
+      <h2>4 · Cheat-resistant, SWE-bench-style grading</h2>
       <ul>
         <li>The candidate patch may change <b>source only</b>; every test file is restored to its canonical version before grading,
           so a patch cannot neuter or weaken the oracle to fake a resolution.</li>

@@ -75,6 +75,34 @@ The judge calibration
 one-off artifact from 2026-05-30. It used `gemini-2.5-flash` on 8 labelled pairs
 and got κ = 1.0. The planned ~200-example calibration set was never completed.
 
+### Known limits of the final results
+
+- **Localization was never exercised.** Each of the 18 golden tasks has exactly
+  one non-test source file in its `base/` directory, and the localizer leaves
+  test files out of its candidates (`_collect_candidates` in
+  [`forgejudge/agent/localize.py`](../forgejudge/agent/localize.py)). BM25 always
+  had one candidate and never had to choose between files. The results say
+  nothing about fault localization in a repository with several source files.
+- **Two fixtures name the bug in a comment.**
+  [`baseconv.py`](../forgejudge/golden/fixtures/base-convert-001/base/baseconv.py)
+  (lines 19–20) and
+  [`fraction.py`](../forgejudge/golden/fixtures/fraction-001/base/fraction.py)
+  (lines 20–22) carry `# BUG:` comments that describe the fault. Both comments
+  were added in `2187cae` (2026-05-30) and were present at `8b9a894`, the commit
+  run #34 swept. The solver puts the whole target file in the prompt, so the
+  models saw them, and those two tasks were easier than intended. The comments
+  are left in place so the published results stay reproducible.
+- **Two of the three models are retired.** The sweep forces every call onto the
+  model under test (`forced_model_complete` in
+  [`forgejudge/eval/sweep.py`](../forgejudge/eval/sweep.py)), so the final sweep
+  used only `groq/llama-3.3-70b-versatile`, `groq/openai/gpt-oss-120b` and
+  `groq/llama-3.1-8b-instant`. Groq's
+  [deprecations page](https://console.groq.com/docs/deprecations) (checked on
+  2026-10-30) lists `llama-3.3-70b-versatile` and `llama-3.1-8b-instant` as shut
+  down on 2026-08-16 for free and developer tiers. It does not list
+  `openai/gpt-oss-120b`. A re-run needs substitute models for the two Llama
+  models (see §2).
+
 ## 2. What no longer works
 
 Provider status as of 2026-09-28. Model availability comes from the providers'
@@ -90,7 +118,7 @@ sweep logs.
 | OpenRouter `qwen3-coder:free` (suggested in older copies of `.env.example`) | Free variant withdrawn in July 2026. Nothing in the code routes through OpenRouter. | Not needed. |
 | The live dashboard (Cloudflare Pages) | Still serves the 2026-07-02 deploy, which predates this archive: the data is the frozen snapshot, but the pages have no archive banner and still say "always-on". The deploy token has been invalid since 2026-07-04, and deploys are manual now. | Maintainer, once: create a Cloudflare API token with *Cloudflare Pages: Edit*, update `CLOUDFLARE_API_TOKEN`, run *Actions → pages-deploy*, or take the site down. Everyone else: serve `dashboard/public` locally, or deploy your own copy (§3). |
 | The hosted live playground (Hugging Face Space) | Not maintained. Nothing in this repository deploys or stops it. | Maintainer: pause or delete the Space and its `GROQ_API_KEY` secret. Everyone else: self-host `playground_api/` (Dockerfile included); the dashboard's replay playground needs no backend. |
-| Langfuse trace links in `runs.json` | They point at the original Langfuse project. They probably need project access and are past the free plan's retention window, so expect them not to resolve. | Patches and verdicts are in `runs.json`. Re-grade them locally (§3.1). |
+| Langfuse trace links in `runs.json` | All 162 point at the original Langfuse project, and the traces are not public. Checked on 2026-10-30: for each of three sampled links, Langfuse answered `User is not a member of this project and this trace is not public`. | Patches and verdicts are in `runs.json`. Re-grade them locally (§3.1). |
 | `eval/baseline_scores.json` (regression-gate baseline) | Holds `llama-3.3-70b`'s per-seed rates from 2026-05-29 (`[0.9444, 0.8889, 0.8333]`), a retired model. | Regenerate it from your own sweep (§3.5). |
 | PyPI `forgejudge==0.1.0` | Its `models.yaml` still lists the retired `llama-3.3-70b-versatile` as primary for plan/localize/critic and as the edit and judge fallback. `solve()` and the MCP `solve_issue` tool still work, because they only call the `edit` role, whose primary is `gpt-oss-120b`; a fallback to the retired model fails. | Install from git (`pip install git+https://github.com/<you>/forgejudge`) for the current chains. |
 
